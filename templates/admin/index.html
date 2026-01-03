@@ -1,0 +1,26 @@
+{% extends "admin/index.html" %}
+
+{% block content_title %}
+<h1>Welcome LucrumERP</h1>
+<div style="margin: 20px 0;">
+    <p style="font-size: 16px; color: #666; margin-bottom: 20px;">
+        Redirecting to Dashboard...
+    </p>
+    <div style="text-align: center;">
+        <div style="display: inline-block; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+            <div style="font-size: 48px; margin-bottom: 10px;">📊</div>
+            <div style="font-size: 18px; font-weight: bold; color: #495057;">Loading Dashboard...</div>
+            <div style="font-size: 14px; color: #6c757d; margin-top: 10px;">Please wait while we redirect you</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+<script>
+    // Auto redirect to Production dashboard after a short delay
+    setTimeout(function() {
+        window.location.href = '/hangerline/dashboard/';
+    }, 2000); // 2 second delay to show the loading message
+</script>
+{% endblock %}

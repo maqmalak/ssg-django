@@ -1,0 +1,845 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+{% load static %}
+
+{% block title %}Production Dashboard - {{ current_month }}{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        /* Dashboard Container */
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            color: white;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .dashboard-header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        /* Filter Section */
+        .filter-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .filter-section h3 {
+            color: #2c3e50;
+            font-size: 1.3em;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-form {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .filter-group input, .filter-group select {
+            padding: 10px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            min-width: 150px;
+        }
+
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .filter-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Section Titles */
+        .section-title {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Summary Cards Grid */
+        .summary-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .summary-card.loading::before { background: linear-gradient(90deg, #667eea, #764ba2); }
+        .summary-card.offloading::before { background: linear-gradient(90deg, #f093fb, #f5576c); }
+        .summary-card.wip::before { background: linear-gradient(90deg, #4ecdc4, #44a08d); }
+        .summary-card.defect::before { background: linear-gradient(90deg, #fc5c65, #eb3b5a); }
+        .summary-card.target::before { background: linear-gradient(90deg, #45aaf2, #2d98da); }
+        .summary-card.achievement::before { background: linear-gradient(90deg, #26de81, #20bf6b); }
+        .summary-card.breakdown::before { background: linear-gradient(90deg, #fd9644, #fa8231); }
+        .summary-card.efficiency::before { background: linear-gradient(90deg, #a55eea, #8854d0); }
+
+        .summary-card-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .summary-card h4 {
+            color: #6c757d;
+            font-size: 0.85em;
+            margin: 0 0 8px 0;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-card .value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .summary-card .change {
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        .summary-card .change.positive { color: #26de81; }
+        .summary-card .change.negative { color: #fc5c65; }
+
+        /* Line-wise Cards Section */
+        .linewise-section {
+            margin-bottom: 30px;
+        }
+
+        .linewise-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .linewise-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        }
+
+        .linewise-card h4 {
+            color: #2c3e50;
+            font-size: 1.1em;
+            margin: 0 0 15px 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .line-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f2f6;
+        }
+
+        .line-item:last-child {
+            border-bottom: none;
+        }
+
+        .line-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .line-stats {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .line-value {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #667eea;
+        }
+
+        .line-percent {
+            background: #f1f2f6;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            color: #6c757d;
+        }
+
+        .line-variance.positive {
+            color: #26de81;
+            font-weight: bold;
+        }
+
+        .line-variance.negative {
+            color: #fc5c65;
+            font-weight: bold;
+        }
+
+        /* Progress Bar */
+        .progress-bar-container {
+            width: 100px;
+            height: 8px;
+            background: #f1f2f6;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-bar.loading { background: linear-gradient(90deg, #667eea, #764ba2); }
+        .progress-bar.offloading { background: linear-gradient(90deg, #f093fb, #f5576c); }
+        .progress-bar.wip { background: linear-gradient(90deg, #4ecdc4, #44a08d); }
+
+        /* Charts Section */
+        .charts-section {
+            margin-bottom: 30px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 25px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        }
+
+        .chart-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-card h4 {
+            color: #2c3e50;
+            font-size: 1.1em;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-wrapper.tall {
+            height: 400px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: 15px;
+            }
+
+            .dashboard-header h1 {
+                font-size: 1.8em;
+            }
+
+            .filter-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .summary-cards-grid {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .linewise-cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Home</a>
+&rsaquo; Production Dashboard
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <h1>🏭 Production Dashboard</h1>
+            <p>Comprehensive Production Analytics & Insights - {{ current_month }}</p>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <h3>🔍 Filter Data</h3>
+            <form class="filter-form" id="filterForm">
+                <div class="filter-group">
+                    <label for="start_date">Start Date</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+                </div>
+
+                <div class="filter-group">
+                    <label for="end_date">End Date</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+                </div>
+
+                <div class="filter-group">
+                    <label for="line_filter">Production Line</label>
+                    <select id="line_filter" name="line">
+                        <option value="">All Lines</option>
+                        <option value="Line-21">Line-21</option>
+                        <option value="Line-22">Line-22</option>
+                        <option value="Line-23">Line-23</option>
+                        <option value="Line-24">Line-24</option>
+                        <option value="Line-25">Line-25</option>
+                        <option value="Line-26">Line-26</option>
+                        <option value="Line-27">Line-27</option>
+                        <option value="Line-28">Line-28</option>
+                        <option value="Line-29">Line-29</option>
+                        <option value="Line-30">Line-30</option>
+                        <option value="Line-31">Line-31</option>
+                        <option value="Line-32">Line-32</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="shift_filter">Shift</label>
+                    <select id="shift_filter" name="shift">
+                        <option value="">All Shifts</option>
+                        <option value="Day">Day</option>
+                        <option value="Night">Night</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="filter-btn">🔄 Apply Filters</button>
+            </form>
+        </div>
+
+        <!-- Total Summary Cards Section -->
+        <div class="section-title">📊 Total Summary (Quantitative)</div>
+        <div class="summary-cards-grid">
+            <div class="summary-card loading">
+                <span class="summary-card-icon">📦</span>
+                <h4>Total Loading</h4>
+                <div class="value" id="totalLoading">{{ total_loading|default:0 }}</div>
+            </div>
+
+            <div class="summary-card offloading">
+                <span class="summary-card-icon">🚚</span>
+                <h4>Total Offloading</h4>
+                <div class="value" id="totalOffloading">{{ total_offloading|default:0 }}</div>
+            </div>
+
+            <div class="summary-card wip">
+                <span class="summary-card-icon">⚡</span>
+                <h4>Total WIP</h4>
+                <div class="value" id="totalWIP">{{ total_wip|default:0 }}</div>
+            </div>
+
+            <div class="summary-card defect">
+                <span class="summary-card-icon">❌</span>
+                <h4>Total Defects</h4>
+                <div class="value" id="totalDefects">{{ total_defects|default:0 }}</div>
+            </div>
+
+            <div class="summary-card defect">
+                <span class="summary-card-icon">📉</span>
+                <h4>Defect Variance</h4>
+                <div class="value" id="defectVariance">{{ defect_variance|default:0 }}%</div>
+            </div>
+
+            <div class="summary-card target">
+                <span class="summary-card-icon">🎯</span>
+                <h4>Total Target</h4>
+                <div class="value" id="totalTarget">{{ total_target|default:0 }}</div>
+            </div>
+
+            <div class="summary-card target">
+                <span class="summary-card-icon">📈</span>
+                <h4>Variance</h4>
+                <div class="value" id="variance">{{ variance|default:0 }}</div>
+                <div class="change {% if variance >= 0 %}positive{% else %}negative{% endif %}">
+                    {% if variance >= 0 %}+{% endif %}{{ variance_percent|default:0 }}%
+                </div>
+            </div>
+
+            <div class="summary-card achievement">
+                <span class="summary-card-icon">✅</span>
+                <h4>Achievement %</h4>
+                <div class="value" id="achievementPercent">{{ achievement_percent|default:0 }}%</div>
+            </div>
+
+            <div class="summary-card breakdown">
+                <span class="summary-card-icon">⏱️</span>
+                <h4>Breakdown Time</h4>
+                <div class="value" id="breakdownTime">{{ total_breakdown|default:0 }} min</div>
+            </div>
+
+            <div class="summary-card efficiency">
+                <span class="summary-card-icon">📊</span>
+                <h4>Efficiency</h4>
+                <div class="value" id="efficiency">{{ efficiency|default:0 }}%</div>
+            </div>
+
+            <div class="summary-card loading">
+                <span class="summary-card-icon">🏭</span>
+                <h4>Active Lines</h4>
+                <div class="value" id="activeLines">{{ line_count|default:0 }}</div>
+            </div>
+        </div>
+
+        <!-- Line-wise Cards Section -->
+        <div class="linewise-section">
+            <div class="section-title">🏭 Line-wise Performance</div>
+            <div class="linewise-cards-grid">
+                <!-- Line-wise Loading Card -->
+                <div class="linewise-card">
+                    <h4>📦 Loading by Line</h4>
+                    <div id="lineLoadingContainer">
+                        {% for item in line_loading %}
+                        <div class="line-item">
+                            <span class="line-name">{{ item.line }}</span>
+                            <div class="line-stats">
+                                <span class="line-value">{{ item.qty }}</span>
+                                <span class="line-percent">{{ item.percent }}%</span>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar loading" style="width: {{ item.percent }}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="color: #6c757d; text-align: center;">No data available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Line-wise Offloading Card -->
+                <div class="linewise-card">
+                    <h4>🚚 Offloading by Line</h4>
+                    <div id="lineOffloadingContainer">
+                        {% for item in line_offloading %}
+                        <div class="line-item">
+                            <span class="line-name">{{ item.line }}</span>
+                            <div class="line-stats">
+                                <span class="line-value">{{ item.qty }}</span>
+                                <span class="line-percent">{{ item.percent }}%</span>
+                                <span class="line-percent">Eff: {{ item.efficiency }}%</span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="color: #6c757d; text-align: center;">No data available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Line-wise WIP Card -->
+                <div class="linewise-card">
+                    <h4>⚡ WIP by Line</h4>
+                    <div id="lineWIPContainer">
+                        {% for item in line_wip %}
+                        <div class="line-item">
+                            <span class="line-name">{{ item.line }}</span>
+                            <div class="line-stats">
+                                <span class="line-value">{{ item.qty }}</span>
+                                <span class="line-percent">{{ item.percent }}%</span>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar wip" style="width: {{ item.percent }}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="color: #6c757d; text-align: center;">No data available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Line-wise Target vs Achievement Card -->
+                <div class="linewise-card">
+                    <h4>🎯 Target vs Achievement</h4>
+                    <div id="lineTargetContainer">
+                        {% for item in line_targets %}
+                        <div class="line-item">
+                            <span class="line-name">{{ item.line }}</span>
+                            <div class="line-stats">
+                                <span class="line-value">{{ item.achieved }}/{{ item.target }}</span>
+                                <span class="line-percent">{{ item.percent }}%</span>
+                                <span class="line-variance {% if item.variance >= 0 %}positive{% else %}negative{% endif %}">
+                                    {% if item.variance >= 0 %}+{% endif %}{{ item.variance }}
+                                </span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="color: #6c757d; text-align: center;">No data available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <div class="section-title">📈 Visual Analytics</div>
+            <div class="charts-grid">
+                <!-- Stacked Vertical Bar Chart -->
+                <div class="chart-card full-width">
+                    <h4>📊 Loading + Offloading + WIP (Stacked)</h4>
+                    <div class="chart-wrapper tall">
+                        <canvas id="stackedBarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Shift-wise Horizontal Bar Chart -->
+                <div class="chart-card">
+                    <h4>🕐 Shift-wise Production</h4>
+                    <div class="chart-wrapper">
+                        <canvas id="shiftBarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Production Distribution Pie Chart -->
+                <div class="chart-card">
+                    <h4>📊 Production Distribution</h4>
+                    <div class="chart-wrapper">
+                        <canvas id="productionPieChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Breakdown Category Pie Chart -->
+                <div class="chart-card">
+                    <h4>🔧 Breakdown by Category</h4>
+                    <div class="chart-wrapper">
+                        <canvas id="breakdownCategoryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Line-wise Breakdown Pie Chart -->
+                <div class="chart-card">
+                    <h4>🏭 Breakdown by Line</h4>
+                    <div class="chart-wrapper">
+                        <canvas id="breakdownLineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Pass Django data to JavaScript -->
+<script id="dashboard-data" type="application/json">
+{
+    "breakdown_categories_labels": {{ breakdown_categories_labels|safe|default:'["No Data"]' }},
+    "breakdown_categories_data": {{ breakdown_categories_data|safe|default:'[0]' }},
+    "breakdown_lines_labels": {{ breakdown_lines_labels|safe|default:'["No Data"]' }},
+    "breakdown_lines_data": {{ breakdown_lines_data|safe|default:'[0]' }}
+}
+</script>
+<script>
+// Global chart instances
+let stackedBarChart, shiftBarChart, productionPieChart, breakdownCategoryChart, breakdownLineChart;
+
+// Dashboard data from Django
+const dashboardData = JSON.parse(document.getElementById('dashboard-data').textContent);
+
+// Chart colors
+const chartColors = {
+    loading: 'rgba(102, 126, 234, 0.8)',
+    offloading: 'rgba(240, 147, 251, 0.8)',
+    wip: 'rgba(78, 205, 196, 0.8)',
+    day: 'rgba(45, 152, 218, 0.8)',
+    night: 'rgba(52, 73, 94, 0.8)',
+    total: 'rgba(155, 89, 182, 0.8)',
+    pieColors: [
+        'rgba(102, 126, 234, 0.8)',
+        'rgba(240, 147, 251, 0.8)',
+        'rgba(78, 205, 196, 0.8)',
+        'rgba(255, 159, 67, 0.8)',
+        'rgba(252, 92, 101, 0.8)',
+        'rgba(165, 94, 234, 0.8)',
+        'rgba(38, 222, 129, 0.8)',
+        'rgba(75, 101, 132, 0.8)'
+    ]
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+
+    // Handle filter form submission
+    document.getElementById('filterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        const line = document.getElementById('line_filter').value;
+        const shift = document.getElementById('shift_filter').value;
+
+        const url = new URL(window.location);
+        if (startDate) url.searchParams.set('start_date', startDate);
+        if (endDate) url.searchParams.set('end_date', endDate);
+        if (line) url.searchParams.set('line', line);
+        if (shift) url.searchParams.set('shift', shift);
+        window.location.href = url.toString();
+    });
+});
+
+function initializeCharts() {
+    createStackedBarChart();
+    createShiftBarChart();
+    createProductionPieChart();
+    createBreakdownCategoryChart();
+    createBreakdownLineChart();
+}
+
+function getDateParams() {
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+    const line = document.getElementById('line_filter').value;
+    const shift = document.getElementById('shift_filter').value;
+    let params = '';
+    if (startDate) params += `start_date=${startDate}&`;
+    if (endDate) params += `end_date=${endDate}&`;
+    if (line) params += `line=${line}&`;
+    if (shift) params += `shift=${shift}&`;
+    return params;
+}
+
+// Stacked Vertical Bar Chart
+function createStackedBarChart() {
+    fetch('/hangerline/api/chart/source/?' + getDateParams())
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('stackedBarChart').getContext('2d');
+            if (stackedBarChart) stackedBarChart.destroy();
+
+            stackedBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: false }
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true }
+                    },
+                    borderRadius: 8
+                }
+            });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Shift-wise Horizontal Bar Chart
+function createShiftBarChart() {
+    fetch('/hangerline/api/chart/shift/?' + getDateParams())
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('shiftBarChart').getContext('2d');
+            if (shiftBarChart) shiftBarChart.destroy();
+
+            shiftBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: false }
+                    },
+                    scales: {
+                        x: { beginAtZero: true }
+                    },
+                    borderRadius: 8
+                }
+            });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Production Distribution Pie Chart
+function createProductionPieChart() {
+    fetch('/hangerline/api/chart/production/?' + getDateParams())
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('productionPieChart').getContext('2d');
+            if (productionPieChart) productionPieChart.destroy();
+
+            productionPieChart = new Chart(ctx, {
+                type: 'pie',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' },
+                        title: { display: false }
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Breakdown Category Pie Chart
+function createBreakdownCategoryChart() {
+    const ctx = document.getElementById('breakdownCategoryChart').getContext('2d');
+    if (breakdownCategoryChart) breakdownCategoryChart.destroy();
+
+    // Use data from Django passed via JSON script tag
+    breakdownCategoryChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: dashboardData.breakdown_categories_labels,
+            datasets: [{
+                data: dashboardData.breakdown_categories_data,
+                backgroundColor: chartColors.pieColors
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+}
+
+// Breakdown Line Pie Chart
+function createBreakdownLineChart() {
+    const ctx = document.getElementById('breakdownLineChart').getContext('2d');
+    if (breakdownLineChart) breakdownLineChart.destroy();
+
+    // Use data from Django passed via JSON script tag
+    breakdownLineChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: dashboardData.breakdown_lines_labels,
+            datasets: [{
+                data: dashboardData.breakdown_lines_data,
+                backgroundColor: chartColors.pieColors
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

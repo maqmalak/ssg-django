@@ -1,0 +1,51 @@
+{% extends "admin/change_form.html" %}
+{% load admin_urls %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        /* Reduce width of specific fields in LineTargetDetail inline */
+        .inline-group .tabular.inline-related .field-pono input,
+        .inline-group .tabular.inline-related .field-st_id input,
+        .inline-group .tabular.inline-related .field-cm_key input,
+        .inline-group .tabular.inline-related .field-sm_key input,
+                .inline-group .tabular.inline-related .field-item_id input,
+        .inline-group .tabular.inline-related .field-bundleno input {
+            width: 80px !important;
+            min-width: 60px !important;
+        }
+    </style>
+    <style>
+        /* Reduce width of specific fields in LineTargetDetail inline */
+        .inline-group .tabular.inline-related .field-item_title input ,
+        .inline-group .tabular.inline-related .field-model input ,
+        .inline-group .tabular.inline-related .field-scrvoucher_no input {
+            width: 120px !important;
+            min-width: 60px !important;
+        }
+    </style>
+
+{% endblock %}
+
+{% block submit_buttons_bottom %}
+    {{ block.super }}
+    {% if has_fetch_permission %}
+        <div class="submit-row">
+            <input type="button" value="Fetch Loading Data" onclick="fetchLoadingData()" class="default" />
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+    {{ block.super }}
+    <script type="text/javascript">
+        function fetchLoadingData() {
+            if (confirm('This will clear existing details and fetch new data from Loading Information. Continue?')) {
+                // Construct URL relative to the linetarget root (remove /change/ from current path)
+                var currentPath = window.location.pathname;
+                var basePath = currentPath.replace('/change/', '/');
+                window.location.href = basePath + 'fetch-loading-data/';
+            }
+        }
+    </script>
+{% endblock %}

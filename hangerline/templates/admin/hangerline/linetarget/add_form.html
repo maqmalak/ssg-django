@@ -1,0 +1,39 @@
+{% extends "admin/add_form.html" %}
+{% load admin_urls %}
+
+{% block submit_buttons_bottom %}
+    {{ block.super }}
+    {% if has_fetch_permission %}
+        <div class="submit-row">
+            <input type="button" value="Save & Fetch Loading Data" onclick="saveAndFetchData()" class="default" />
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+    {{ block.super }}
+    <script type="text/javascript">
+        function saveAndFetchData() {
+            if (confirm('This will save the Line Target and then fetch loading data. Continue?')) {
+                // First save the form
+                var form = document.querySelector('form');
+                var originalAction = form.action;
+                var originalMethod = form.method;
+
+                // Temporarily modify form to save
+                form.method = 'POST';
+                form.action = window.location.href;
+
+                // Add a hidden field to indicate we want to fetch after save
+                var fetchField = document.createElement('input');
+                fetchField.type = 'hidden';
+                fetchField.name = 'fetch_after_save';
+                fetchField.value = '1';
+                form.appendChild(fetchField);
+
+                // Submit the form
+                form.submit();
+            }
+        }
+    </script>
+{% endblock %}

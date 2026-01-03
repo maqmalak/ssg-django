@@ -1,0 +1,861 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+{% load static %}
+
+{% block title %}        <button onclick="updateCharts()">🔄 Apply Filter</button> {% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        /* Elegant Summary Cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.8);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+
+        .summary-card:nth-child(1)::before { background: linear-gradient(90deg, #ff6b6b 0%, #ee5a24 100%); }
+        .summary-card:nth-child(2)::before { background: linear-gradient(90deg, #ffd93d 0%, #ffb347 100%); }
+        .summary-card:nth-child(3)::before { background: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%); }
+        .summary-card:nth-child(4)::before { background: linear-gradient(90deg, #00cec9 0%, #55a3ff 100%); }
+
+        .summary-card-icon {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            display: block;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .summary-card:nth-child(1) .summary-card-icon { color: #ff6b6b; }
+        .summary-card:nth-child(2) .summary-card-icon { color: #ffd93d; }
+        .summary-card:nth-child(3) .summary-card-icon { color: #6c5ce7; }
+        .summary-card:nth-child(4) .summary-card-icon { color: #00cec9; }
+
+        .summary-card h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2c3e50;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.9;
+        }
+
+        .summary-card-value {
+            font-size: 2.8em;
+            font-weight: 700;
+            margin: 10px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            line-height: 1;
+        }
+
+        .summary-card:nth-child(1) .summary-card-value {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .summary-card:nth-child(2) .summary-card-value {
+            background: linear-gradient(135deg, #ffd93d 0%, #ffb347 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .summary-card:nth-child(3) .summary-card-value {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .summary-card:nth-child(4) .summary-card-value {
+            background: linear-gradient(135deg, #00cec9 0%, #55a3ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .summary-card-description {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 10px;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+
+        .summary-card:hover .summary-card-icon {
+            transform: scale(1.1);
+            transition: transform 0.3s ease;
+        }
+
+        .summary-card:hover .summary-card-value {
+            transform: scale(1.05);
+            transition: transform 0.3s ease;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .summary-cards {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .summary-card {
+                padding: 25px;
+            }
+
+            .summary-card-value {
+                font-size: 2.4em;
+            }
+        }
+
+        .card h3 { margin: 0 0 10px 0; }
+        .card.positive h3 { color: #28a745; }
+        .card.positive div:first-of-type { font-size: 2em; font-weight: bold; color: #28a745; }
+        .card.negative h3 { color: #dc3545; }
+    .card.negative div:first-of-type { font-size: 2em; font-weight: bold; color: #dc3545; }
+    .chart-container { width: 100%; max-width: 600px; margin: 20px auto; }
+    .date-filter {
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        padding: 20px 30px;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .date-filter label {
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.95em;
+    }
+    .date-filter input {
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-size: 1em;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .date-filter input:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+        outline: none;
+    }
+    .date-filter button {
+        padding: 12px 30px;
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 1em;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .date-filter button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 20px rgba(52, 152, 219, 0.4);
+    }
+    </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Home</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label='hangerline' %}">Hangerline</a>
+&rsaquo; <a href="{% url 'admin:hangerline_breakdown_changelist' %}">Breakdowns</a>
+&rsaquo; Dashboard
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h1>Breakdown Dashboard</h1>
+
+        <!-- Date Filter -->
+        <div class="date-filter">
+            <label>📅 Start Date:</label>
+            <input type="date" id="startDate" value="{{ start_date }}">
+            <label>📅 End Date:</label>
+            <input type="date" id="endDate" value="{{ end_date }}">
+            <button onclick="updateDashboard()">🔄 Apply Filter</button>
+        </div>
+
+        <div class="summary-cards">
+            <!-- Total Breakdowns Card -->
+            <div class="summary-card">
+                <span class="summary-card-icon">⚠️</span>
+                <h3>Total Breakdowns</h3>
+                <div class="summary-card-value">{{ total_stats.total_breakdowns|default:0 }}</div>
+                <div class="summary-card-description">Incidents this period</div>
+            </div>
+
+            <!-- Total Downtime Card -->
+            <div class="summary-card">
+                <span class="summary-card-icon">⏱️</span>
+                <h3>Total Downtime</h3>
+                <div class="summary-card-value">{{ total_stats.total_time|default:0 }}</div>
+                <div class="summary-card-description">Minutes of production lost</div>
+            </div>
+
+            <!-- Average Breakdown Time Card -->
+            <div class="summary-card">
+                <span class="summary-card-icon">📊</span>
+                <h3>Average Time</h3>
+                <div class="summary-card-value">
+                    {% if total_stats.avg_time %}
+                        {{ total_stats.avg_time|floatformat:1 }}
+                    {% else %}
+                        0.0
+                    {% endif %}
+                </div>
+                <div class="summary-card-description">Minutes per incident</div>
+            </div>
+
+            <!-- Most Affected Line Card -->
+            <div class="summary-card">
+                <span class="summary-card-icon">🏭</span>
+                <h3>Most Affected</h3>
+                <div class="summary-card-value" style="font-size: 1.8em;">N/A</div>
+                <div class="summary-card-description">Line with highest downtime</div>
+            </div>
+        </div>
+
+        <!-- Breakdown Time Pie Charts -->
+        <div style="margin: 40px 0; display: flex; flex-wrap: wrap; gap: 40px; justify-content: center;">
+            <!-- Category-wise Breakdown -->
+            <div style="flex: 1; min-width: 400px; text-align: center;">
+                <h2 style="color: #2c3e50; margin-bottom: 30px; font-size: 1.6em;">Breakdown Time by Category</h2>
+                <div class="chart-container" style="position: relative; margin: 0 auto; max-width: 400px;">
+                    <canvas id="categoryChart" width="400" height="400"></canvas>
+                    <div id="categoryCenterText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; font-size: 1.1em; font-weight: bold; color: #2c3e50;">
+                        <div style="font-size: 1.3em;">{{ total_stats.total_time|default:0 }}</div>
+                        <div style="font-size: 0.7em; opacity: 0.8;">Total Minutes</div>
+                    </div>
+                </div>
+                <div id="categoryLegend" style="margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;"></div>
+            </div>
+
+            <!-- Line-wise Breakdown -->
+            <div style="flex: 1; min-width: 400px; text-align: center;">
+                <h2 style="color: #2c3e50; margin-bottom: 30px; font-size: 1.6em;">Breakdown Time by Line</h2>
+                <div class="chart-container" style="position: relative; margin: 0 auto; max-width: 400px;">
+                    <canvas id="lineChart" width="400" height="400"></canvas>
+                    <div id="lineCenterText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; font-size: 1.1em; font-weight: bold; color: #2c3e50;">
+                        <div style="font-size: 1.3em;">{{ total_stats.total_time|default:0 }}</div>
+                        <div style="font-size: 0.7em; opacity: 0.8;">Total Minutes</div>
+                    </div>
+                </div>
+                <div id="lineLegend" style="margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- Total Downtime Trend Chart (Breakdown Time Trend by Date) -->
+        <div style="margin: 40px 0; text-align: center;">
+            <h2 style="color: #2c3e50; margin-bottom: 30px; font-size: 1.8em;">Breakdown Time Trend by Date</h2>
+            <div class="chart-container" style="position: relative; margin: 0 auto; width: 100% !important; max-width: none !important;">
+                <canvas id="totalTrendChart" width="1200" height="400"></canvas>
+            </div>
+        </div>
+
+        <!-- Line-wise Trend Chart (Breakdown Time Trend by Line) -->
+        <div style="margin: 40px 0; text-align: center;">
+            <h2 style="color: #2c3e50; margin-bottom: 30px; font-size: 1.8em;">Breakdown Time Trend by Line</h2>
+            <div class="chart-container" style="position: relative; margin: 0 auto; width: 100% !important; max-width: none !important;">
+                <canvas id="trendChart" width="1200" height="400"></canvas>
+            </div>
+        </div>
+
+        <!-- Category-wise Trend Chart (Breakdown Time Trend by Category) -->
+        <div style="margin: 40px 0; text-align: center;">
+            <h2 style="color: #2c3e50; margin-bottom: 30px; font-size: 1.8em;">Breakdown Time Trend by Category</h2>
+            <div class="chart-container" style="position: relative; margin: 0 auto; width: 100% !important; max-width: none !important;">
+                <canvas id="categoryTrendChart" width="1200" height="400"></canvas>
+            </div>
+        </div>
+
+        <!-- Category Breakdown Table -->
+        <div style="margin-top: 30px;">
+            <h2>Breakdown Summary by Category</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Category</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Count</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Time (min)</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Average Time (min)</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">% of Total Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in category_stats %}
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">{{ stat.breakdown_category__name }}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{{ stat.count }}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{{ stat.total_time|default:0 }}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                                {% if stat.avg_time %}
+                                    {{ stat.avg_time|floatformat:1 }}
+                                {% else %}
+                                    0.0
+                                {% endif %}
+                            </td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                                {{ stat.percentage }}%
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" style="border: 1px solid #ddd; padding: 8px; text-align: center; color: #666;">
+                                No breakdown data found for the selected date range
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Quick Actions -->
+        <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+            <h3>Quick Actions</h3>
+            <p>
+                <a href="{% url 'admin:hangerline_breakdown_add' %}" class="button" style="margin-right: 10px;">Add New Breakdown</a>
+                <a href="{% url 'admin:hangerline_breakdown_changelist' %}" class="button" style="margin-right: 10px;">View All Breakdowns</a>
+                <a href="{% url 'admin:hangerline_breakdowncategory_changelist' %}" class="button">Manage Categories</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+{% block extrahead %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initialize charts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize category chart
+    initializeChart('categoryChart', 'categoryCenterText', 'categoryLegend',
+                   {{ category_chart_labels|safe }}, {{ category_chart_data|safe }});
+
+    // Initialize line chart
+    initializeChart('lineChart', 'lineCenterText', 'lineLegend',
+                   {{ line_chart_labels|safe }}, {{ line_chart_data|safe }});
+
+    // Initialize trend chart
+    initializeTrendChart();
+
+    // Initialize total trend chart
+    initializeTotalTrendChart();
+
+    // Initialize category trend chart
+    initializeCategoryTrendChart();
+});
+
+function initializeChart(canvasId, centerTextId, legendId, labels, data) {
+    try {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.error(`Canvas element ${canvasId} not found`);
+            return;
+        }
+
+        const colors = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+            '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+        ];
+
+        // Check if we have data
+        if (!data || data.length === 0) {
+            console.log(`No data available for ${canvasId}`);
+            // Create empty chart
+            const emptyChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        data: [1],
+                        backgroundColor: ['#e0e0e0'],
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    }
+                }
+            });
+
+            // Update center text
+            const centerText = document.getElementById(centerTextId);
+            if (centerText) {
+                centerText.innerHTML = `
+                    <div style="font-size: 1.1em; color: #666;">No Data</div>
+                    <div style="font-size: 0.7em; opacity: 0.8;">Available</div>
+                `;
+            }
+            return;
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors.slice(0, data.length),
+                    borderColor: '#fff',
+                    borderWidth: 3,
+                    hoverBorderWidth: 5,
+                    hoverBorderColor: '#fff',
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return label + ': ' + value + ' min (' + percentage + '%)';
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateScale: true,
+                    animateRotate: true,
+                    duration: 2000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+
+        // Create custom legend
+        createCustomLegend(legendId, labels, colors.slice(0, data.length));
+        console.log(`${canvasId} initialized successfully`);
+
+    } catch (error) {
+        console.error(`Error initializing ${canvasId}:`, error);
+    }
+}
+
+function createCustomLegend(legendId, labels, colors) {
+    const legendContainer = document.getElementById(legendId);
+    if (!legendContainer) return;
+
+    // Clear existing legend
+    legendContainer.innerHTML = '';
+
+    labels.forEach((label, index) => {
+        const legendItem = document.createElement('div');
+        legendItem.style.display = 'flex';
+        legendItem.style.alignItems = 'center';
+        legendItem.style.margin = '5px';
+        legendItem.style.padding = '8px 12px';
+        legendItem.style.backgroundColor = '#f8f9fa';
+        legendItem.style.borderRadius = '20px';
+        legendItem.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        legendItem.style.cursor = 'pointer';
+        legendItem.style.transition = 'all 0.3s ease';
+
+        const colorBox = document.createElement('div');
+        colorBox.style.width = '12px';
+        colorBox.style.height = '12px';
+        colorBox.style.borderRadius = '50%';
+        colorBox.style.backgroundColor = colors[index];
+        colorBox.style.marginRight = '8px';
+        colorBox.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+
+        const labelText = document.createElement('span');
+        labelText.textContent = label;
+        labelText.style.fontWeight = '500';
+        labelText.style.color = '#2c3e50';
+
+        legendItem.appendChild(colorBox);
+        legendItem.appendChild(labelText);
+
+        // Add hover effect
+        legendItem.addEventListener('mouseenter', () => {
+            legendItem.style.transform = 'translateY(-2px)';
+            legendItem.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+        });
+
+        legendItem.addEventListener('mouseleave', () => {
+            legendItem.style.transform = 'translateY(0)';
+            legendItem.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        });
+
+        legendContainer.appendChild(legendItem);
+    });
+}
+
+function initializeTrendChart() {
+    try {
+        const ctx = document.getElementById('trendChart');
+        if (!ctx) {
+            console.error('Trend chart canvas not found');
+            return;
+        }
+
+        const trendData = {{ trend_chart_data|safe }};
+        const dates = {{ trend_dates|safe }};
+
+        // Check if we have data
+        if (!trendData || trendData.length === 0 || !dates || dates.length === 0) {
+            console.log('No trend data available');
+            // Create empty chart
+            const emptyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        label: 'No Data',
+                        data: [0],
+                        borderColor: '#e0e0e0',
+                        backgroundColor: 'rgba(224, 224, 224, 0.1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            return;
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: trendData
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y + ' min';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Breakdown Time (minutes)'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+
+        console.log('Trend chart initialized successfully');
+
+    } catch (error) {
+        console.error('Error initializing trend chart:', error);
+    }
+}
+
+function initializeTotalTrendChart() {
+    try {
+        const ctx = document.getElementById('totalTrendChart');
+        if (!ctx) {
+            console.error('Total trend chart canvas not found');
+            return;
+        }
+
+        const totalTrendData = {{ total_trend_chart_data|safe }};
+        const totalTrendDates = {{ trend_dates|safe }};
+
+        // Check if we have data
+        if (!totalTrendData || totalTrendData.length === 0 || !totalTrendDates || totalTrendDates.length === 0) {
+            console.log('No total trend data available');
+            // Create empty chart
+            const emptyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        label: 'No Data',
+                        data: [0],
+                        borderColor: '#e0e0e0',
+                        backgroundColor: 'rgba(224, 224, 224, 0.1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            return;
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: totalTrendDates,
+                datasets: totalTrendData
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y + ' min';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Total Breakdown Time (minutes)'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+
+        console.log('Total trend chart initialized successfully');
+
+    } catch (error) {
+        console.error('Error initializing total trend chart:', error);
+    }
+}
+
+function initializeCategoryTrendChart() {
+    try {
+        const ctx = document.getElementById('categoryTrendChart');
+        if (!ctx) {
+            console.error('Category trend chart canvas not found');
+            return;
+        }
+
+        const categoryTrendData = {{ category_trend_chart_data|safe }};
+        const categoryTrendDates = {{ trend_dates|safe }};
+
+        // Check if we have data
+        if (!categoryTrendData || categoryTrendData.length === 0 || !categoryTrendDates || categoryTrendDates.length === 0) {
+            console.log('No category trend data available');
+            // Create empty chart
+            const emptyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        label: 'No Data',
+                        data: [0],
+                        borderColor: '#e0e0e0',
+                        backgroundColor: 'rgba(224, 224, 224, 0.1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            return;
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: categoryTrendDates,
+                datasets: categoryTrendData
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y + ' min';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Breakdown Time (minutes)'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+
+        console.log('Category trend chart initialized successfully');
+
+    } catch (error) {
+        console.error('Error initializing category trend chart:', error);
+    }
+}
+
+function updateDashboard() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    // Build URL with date parameters
+    let url = window.location.pathname;
+    const params = new URLSearchParams();
+
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const paramString = params.toString();
+    if (paramString) {
+        url += '?' + paramString;
+    }
+
+    // Redirect to the new URL
+    window.location.href = url;
+}
+</script>
+{% endblock %}
+
+{% endblock %}
