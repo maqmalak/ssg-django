@@ -8,6 +8,38 @@
 from django.db import models
 
 
+class TransferToPacking(models.Model):
+    id = models.AutoField(primary_key=True)
+    dated = models.DateTimeField(blank=True, null=True, verbose_name='Date')
+    proddate = models.DateField(blank=True, null=True, verbose_name='Production Date')
+    scrvoucher_no = models.CharField(max_length=50, blank=True, null=True, verbose_name='SCR Voucher No')
+    transferfromdepartment_id = models.CharField(max_length=50, blank=True, null=True, verbose_name='Transfer From Department ID')
+    from_dept_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='From Department Name')
+    transfertodepartment_id = models.CharField(max_length=50, blank=True, null=True, verbose_name='Transfer To Department ID')
+    to_dept_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='To Department Name')
+    pono = models.CharField(max_length=50, blank=True, null=True, verbose_name='PO No')
+    articleno = models.CharField(max_length=50, blank=True, null=True, verbose_name='Article No')
+    mcolour = models.CharField(max_length=50, blank=True, null=True, verbose_name='Color')
+    size = models.CharField(max_length=50, blank=True, null=True, verbose_name='Size')
+    item_id = models.CharField(max_length=50, blank=True, null=True, verbose_name='Item ID')
+    item_title = models.TextField(max_length=200, blank=True, null=True, verbose_name='Item Title')
+    qtytransferred = models.IntegerField(blank=True, null=True, verbose_name='Quantity Transferred')
+    refqty = models.IntegerField(blank=True, null=True, verbose_name='Reference Quantity')
+    line_id = models.CharField(max_length=20, blank=True, null=True, verbose_name='Line ID')
+    line_desc = models.CharField(max_length=100, blank=True, null=True, verbose_name='Line Description')
+    bundleno = models.BigIntegerField(blank=True, null=True, verbose_name='Bundle No')
+
+    class Meta:
+        managed = False
+        db_table = 'transfertopacking'
+        verbose_name = 'Transfer to Packing'
+        verbose_name_plural = 'Transfer to Packing'
+        ordering = ['-dated']
+
+    def __str__(self):
+        return f"Transfer {self.id} - {self.pono} - {self.item_title}"
+
+
 class Article(models.Model):
     id = models.CharField(blank=False, null=False,primary_key=True)
     fg_articleno = models.CharField(blank=True, null=True)
@@ -67,37 +99,45 @@ class HangerlineEmp(models.Model):
     # deptt_id = models.DateTimeField(blank=True, null=True)
     current_line_id = models.CharField(max_length=100, null=True)
     latest_line_id = models.CharField(max_length=100, null=True)
-    assignment_date = models.DateTimeField(blank=True, null=True)
     line_desc = models.CharField(max_length=100, null=True)
+    assignment_date = models.DateTimeField(blank=True, null=True)
     shift = models.CharField(max_length=100, null=True)
     location_id = models.BigIntegerField(blank=True, null=True)
     joindate = models.DateTimeField(blank=True, null=True)
     resigndate = models.FloatField(blank=True, null=True)
     nic = models.CharField(max_length=100, null=True)
     add1 = models.TextField(blank=True, null=True)
-    mobile = models.TextField(blank=True, null=True)
-    activestatus = models.BigIntegerField(blank=True, null=True)
-    gender = models.TextField(blank=True, null=True)
+    mobile = models.CharField(blank=True, null=True)
+    activestatus = models.BooleanField(blank=True, null=True)
+    gender_choice = [
+        ('M', 'Male'),
+        ('F','Female')
+    ]
+    gender = models.CharField(blank=True, null=True,choices=gender_choice)
 
     class Meta:
         managed = False
         db_table = 'hangerline_emp'
 
-
+    def __str__(self):
+        return f"{self.id} - {self.title}"
+    
 class Loadinginformation(models.Model):
-    id = models.TextField(blank=True, null=True)
+    # id = models.TextField(blank=True, null=True)
     dated = models.DateTimeField(blank=True, null=True, verbose_name='Date',default=None)
-    scrvoucher_no = models.CharField(max_length=20, blank=True, null=True, verbose_name='SCR Voucher No')
+    # scrvoucher_no = models.CharField(max_length=20, blank=True, null=True, verbose_name='SCR Voucher No')
+
+    id = models.CharField(max_length=20, blank=True, null=True, verbose_name='SCR Voucher No',db_column='scrvoucher_no')
     barcode = models.BigIntegerField(primary_key=True, verbose_name='Barcode')
-    maindeptt_id = models.TextField(blank=True, null=True, verbose_name='Main Dept ID')
-    pono = models.TextField(blank=True, null=True, verbose_name='PO No',default=None)
-    item_id = models.TextField(blank=True, null=True, verbose_name='Item ID')
+    maindeptt_id = models.CharField(blank=True, null=True, verbose_name='Main Dept ID')
+    pono = models.CharField(blank=True, null=True, verbose_name='PO No',default=None)
+    item_id = models.CharField(blank=True, null=True, verbose_name='Item ID')
     line_id = models.CharField(max_length=10, blank=True, null=True, verbose_name='Line ID')
     title = models.TextField(blank=True, null=True, verbose_name='Title')
-    model = models.TextField(blank=True, null=True, verbose_name='Model')
-    fg_articleno = models.TextField(blank=True, null=True, verbose_name='FG Article No')
-    fg_colour = models.TextField(blank=True, null=True, verbose_name='FG Colour')
-    fg_size = models.TextField(blank=True, null=True, verbose_name='FG Size')
+    model = models.CharField(blank=True, null=True, verbose_name='Model')
+    fg_articleno = models.CharField(blank=True, null=True, verbose_name='FG Article No')
+    fg_colour = models.CharField(blank=True, null=True, verbose_name='FG Colour')
+    fg_size = models.CharField(blank=True, null=True, verbose_name='FG Size')
     bundleno = models.BigIntegerField(blank=True, null=True, verbose_name='Bundle No')
     qty = models.FloatField(blank=True, null=True, verbose_name='Quantity')
 
@@ -108,7 +148,8 @@ class Loadinginformation(models.Model):
         verbose_name_plural = 'Loading Information'
         ordering = ['-dated']
 
-
+    def __str__(self):
+        return f"{self.id} "
 
 class Operationinformation(models.Model):
     maindeptt_id = models.BigIntegerField(blank=True, null=True)

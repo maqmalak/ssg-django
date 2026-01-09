@@ -8,7 +8,8 @@ from .models import (
     QualityControlRepair,
     Loadinginformation, Operationinformation,
     Stylebasicinformation, EtlExtractLog, EtlQcrExtractLog,
-    Size, Color, Style, LineTarget, LineTargetDetail, BreakdownCategory, Breakdown, ClientPurchaseOrder
+    Size, Color, Style, LineTarget, LineTargetDetail, BreakdownCategory, Breakdown, ClientPurchaseOrder,
+    TransferToPacking
 )
 
 
@@ -232,6 +233,35 @@ class ShiftFilter(admin.SimpleListFilter):
         return queryset
 
 
+class DateRangeFilter(admin.SimpleListFilter):
+    title = _('Date Range')
+    parameter_name = 'date_range'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('today', _('Today')),
+            ('yesterday', _('Yesterday')),
+            ('today_yesterday', _('Today + Yesterday')),
+            ('all', _('All Dates')),
+        ]
+
+    def queryset(self, request, queryset):
+        from datetime import date, timedelta
+
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        if self.value() == 'today':
+            return queryset.filter(dated__date=today)
+        elif self.value() == 'yesterday':
+            return queryset.filter(dated__date=yesterday)
+        elif self.value() == 'today_yesterday':
+            return queryset.filter(dated__date__in=[yesterday, today])
+        elif self.value() == 'all':
+            return queryset
+        return queryset
+
+
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     list_display = ('fg_articleno', 'basearticleno','tis_stylecollection', 'tis_stylesize', 'tis_stylecolour')
@@ -241,9 +271,9 @@ class ArticleAdmin(admin.ModelAdmin):
 
 @admin.register(HangerlineEmp)
 class HangerlineEmpAdmin(admin.ModelAdmin):
-    list_display = ('emp_id', 'title', 'desig_id', 'current_line_id', 'shift', 'activestatus')
+    list_display = ('emp_id', 'title', 'desig_id', 'line_desc', 'shift', 'activestatus')
     search_fields = ('id', 'title', 'nic', 'mobile')
-    list_filter = ('shift', 'gender', 'current_line_id')
+    list_filter = ('line_desc', 'shift', 'gender',)
     date_hierarchy = 'joindate'
 
 
@@ -254,6 +284,49 @@ class OperatorDailyPerformanceAdmin(admin.ModelAdmin):
     list_filter = ('odp_date', ShiftFilter, SourceConnectionFilter, ProductionFilter, 'odpd_is_overtime')
     date_hierarchy = 'odp_date'
     readonly_fields = ('created_at',)
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom_urls = [
+            path('dashboard/', self.dashboard_view, name='hangerline_dashboard'),
+        ]
+        return custom_urls + urls
+
+    def dashboard_view(self, request):
+        """Main hangerline dashboard view"""
+        from django.shortcuts import render
+
+        context = {
+            'title': 'Production Dashboard',
+            'has_permission': self.has_view_permission(request),
+        }
+
+        return render(request, 'admin/hangerline/dashboard.html', context)
+
+    # def changelist_view(self, request, extra_context=None):
+    #     """Override changelist view to add dashboard links"""
+    #     extra_context = extra_context or {}
+    #     extra_context.update({
+    #         'dashboard_links': [
+    #             {
+    #                 'title': '⚛️ React Dashboard',
+    #                 'url': '/dashboard/',
+    #                 'description': 'Modern React interface with dark theme'
+    #             },
+    #             {
+    #                 'title': '🏭 Production Dashboard',
+    #                 'url': '/production-dashboard/',
+    #                 'description': 'Complete Django production analytics with charts'
+    #             },
+    #             {
+    #                 'title': '🔧 Breakdown Dashboard',
+    #                 'url': '/breakdown-dashboard/',
+    #                 'description': 'Breakdown analysis and charts'
+    #             }
+    #         ]
+    #     })
+    #     return super().changelist_view(request, extra_context)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -345,8 +418,8 @@ class QualityControlRepairAdmin(admin.ModelAdmin):
 
 @admin.register(Loadinginformation)
 class LoadinginformationAdmin(admin.ModelAdmin):
-    list_display = ('dated', 'pono', 'item_id', 'title', 'fg_articleno', 'fg_colour', 'fg_size','bundleno', 'qty', 'line_id')
-    search_fields = ('pono', 'item_id', 'title', 'fg_articleno', 'barcode', 'fg_colour', 'model', 'scrvoucher_no')
+    list_display = ('dated','id', 'pono', 'item_id', 'title', 'fg_colour', 'fg_size','bundleno', 'qty', 'line_id')
+    search_fields = ('pono', 'item_id', 'title', 'fg_articleno', 'barcode', 'fg_colour', 'model', 'id')
     list_filter = ('line_id', 'maindeptt_id', 'fg_colour', 'fg_size')
     date_hierarchy = 'dated'
     ordering = ['-dated']
@@ -412,7 +485,7 @@ class StyleAdmin(admin.ModelAdmin):
 class ClientPurchaseOrderAdmin(admin.ModelAdmin):
     list_display = ('id', 'pono', 'client_title', 'articleno', 'item_title', 'po_qty', 'clientpodate')
     search_fields = ('pono', 'client_title', 'articleno', 'item_title')
-    list_filter = ('client_title', 'buyyear', 'buymonth')
+    list_filter = ('client_title', 'pono', 'articleno')
     date_hierarchy = 'clientpodate'
     ordering = ['-clientpodate']
 
@@ -466,18 +539,18 @@ class LineTargetAdmin(admin.ModelAdmin):
         # Aggregate LineTarget data
         line_targets = LineTarget.objects.filter(
             target_date__gte=current_month,
-            target_date__lt=next_month
+            target_date__lte=next_month
         )
 
         total_targets = line_targets.aggregate(
             total_qty=Sum('total_target_qty'),
-            total_lines=Count('id')
+            total_lines=Count('source_connection')
         )
 
         # Get actual offloading data for comparison
         actual_offloading = OperatorDailyPerformance.objects.filter(
             odp_date__gte=current_month,
-            odp_date__lt=next_month
+            odp_date__lte=next_month
         ).aggregate(
             total_offloading=Sum('unloading_qty'),
             total_loading=Sum('loading_qty')
@@ -501,6 +574,30 @@ class LineTargetAdmin(admin.ModelAdmin):
         }
 
         return render(request, 'admin/hangerline/linetarget/dashboard.html', context)
+
+    # def changelist_view(self, request, extra_context=None):
+    #     """Override changelist view to add dashboard links"""
+    #     extra_context = extra_context or {}
+    #     extra_context.update({
+    #         'dashboard_links': [
+    #             {
+    #                 'title': '🏭 Production Dashboard',
+    #                 'url': '/dashboard/',
+    #                 'description': 'Complete Django production analytics with charts'
+    #             },
+    #             {
+    #                 'title': '⚛️ React Dashboard',
+    #                 'url': '/production-dashboard/',
+    #                 'description': 'Modern React interface (experimental)'
+    #             },
+    #             {
+    #                 'title': '🔧 Breakdown Dashboard',
+    #                 'url': '/breakdown-dashboard/',
+    #                 'description': 'Breakdown analysis and charts'
+    #             }
+    #         ]
+    #     })
+        return super().changelist_view(request, extra_context)
 
     def fetch_loading_data(self, request, pk):
         from django.shortcuts import get_object_or_404, redirect
@@ -628,6 +725,30 @@ class BreakdownAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
+    # def changelist_view(self, request, extra_context=None):
+    #     """Override changelist view to add dashboard links"""
+    #     extra_context = extra_context or {}
+    #     extra_context.update({
+    #         'dashboard_links': [
+    #             {
+    #                 'title': '⚛️ React Dashboard',
+    #                 'url': '/dashboard/',
+    #                 'description': 'Modern React interface with dark theme'
+    #             },
+    #             {
+    #                 'title': '🏭 Production Dashboard',
+    #                 'url': '/production-dashboard/',
+    #                 'description': 'Complete Django production analytics with charts'
+    #             },
+    #             {
+    #                 'title': '🔧 Breakdown Dashboard',
+    #                 'url': '/breakdown-dashboard/',
+    #                 'description': 'Breakdown analysis and charts'
+    #             }
+    #         ]
+    #     })
+    #     return super().changelist_view(request, extra_context)
+
     def dashboard_view(self, request):
         """Dashboard view showing breakdown summary and pie chart by category"""
         from django.db.models import Sum, Count, Avg, F, ExpressionWrapper, fields
@@ -670,7 +791,7 @@ class BreakdownAdmin(admin.ModelAdmin):
         # Get breakdown data first
         breakdowns = Breakdown.objects.filter(
             p_date__gte=start_date,
-            p_date__lt=end_date
+            p_date__lte=end_date
         )
 
         # Calculate statistics manually since we can't use database aggregation with model properties
@@ -864,3 +985,24 @@ class BreakdownAdmin(admin.ModelAdmin):
         }
 
         return render(request, 'admin/hangerline/breakdown/dashboard.html', context)
+
+
+@admin.register(TransferToPacking)
+class TransferToPackingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'dated', 'proddate', 'pono', 'articleno', 'item_title', 'line_desc','qtytransferred')
+    search_fields = ('pono', 'articleno', 'item_id', 'item_title', 'scrvoucher_no', 'qtytransferred', 'from_dept_name', 'to_dept_name')
+    list_filter = (DateRangeFilter, 'dated', 'proddate', 'from_dept_name','to_dept_name', 'line_desc')
+    date_hierarchy = 'dated'
+    ordering = ['-dated']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        from datetime import date, timedelta
+
+        # Default to showing today + yesterday data if no date_range filter is applied
+        if not request.GET.get('date_range'):
+            today = date.today()
+            yesterday = today - timedelta(days=1)
+            qs = qs.filter(dated__date__in=[yesterday, today])
+
+        return qs
