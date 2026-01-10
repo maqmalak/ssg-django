@@ -1232,7 +1232,7 @@ class BreakdownAdmin(admin.ModelAdmin):
                 },
                 {
                     'title': '🏭 Production Dashboard',
-                    'url': '/admin/hangerline/operatordailyperformance/dashboard/',
+                    'url': '/hangerline/dashboard/',
                     'description': 'Complete Django production analytics with charts'
                 },
                 {
