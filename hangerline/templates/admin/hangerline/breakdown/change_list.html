@@ -1,0 +1,21 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+<div id="content-main">
+    {% if dashboard_links %}
+    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+        <h3 style="margin: 0 0 10px 0; color: #495057;">📊 Dashboard Links</h3>
+        {% for link in dashboard_links %}
+        <a href="{{ link.url }}" class="button" style="background: #007bff; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; margin-right: 10px; display: inline-block;">
+            {{ link.title }}
+        </a>
+        {% if link.description %}
+        <span style="color: #6c757d; font-size: 0.9em;">{{ link.description }}</span>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {{ block.super }}
+</div>
+{% endblock %}

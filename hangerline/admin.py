@@ -39,6 +39,20 @@ class ProductionFilter(admin.SimpleListFilter):
         if 'odp_date__day' in request.GET:
             queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
 
+        # Apply custom date range filter
+        if request.GET.get('odp_date_range'):
+            from datetime import date, timedelta
+            today = date.today()
+            yesterday = today - timedelta(days=1)
+
+            odp_date_range = request.GET['odp_date_range']
+            if odp_date_range == 'today':
+                queryset = queryset.filter(odp_date=today)
+            elif odp_date_range == 'yesterday':
+                queryset = queryset.filter(odp_date=yesterday)
+            elif odp_date_range == 'today_yesterday':
+                queryset = queryset.filter(odp_date__in=[yesterday, today])
+
         # Calculate sums for each production category
         categories = []
 
@@ -163,6 +177,20 @@ class SourceConnectionFilter(admin.SimpleListFilter):
         if 'odp_date__day' in request.GET:
             queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
 
+        # Apply custom date range filter
+        if request.GET.get('odp_date_range'):
+            from datetime import date, timedelta
+            today = date.today()
+            yesterday = today - timedelta(days=1)
+
+            odp_date_range = request.GET['odp_date_range']
+            if odp_date_range == 'today':
+                queryset = queryset.filter(odp_date=today)
+            elif odp_date_range == 'yesterday':
+                queryset = queryset.filter(odp_date=yesterday)
+            elif odp_date_range == 'today_yesterday':
+                queryset = queryset.filter(odp_date__in=[yesterday, today])
+
         # Get distinct source_connection values with aggregated loading/unloading sums
         connections = (
             queryset
@@ -207,6 +235,20 @@ class ShiftFilter(admin.SimpleListFilter):
             queryset = queryset.filter(odp_date__month=request.GET['odp_date__month'])
         if 'odp_date__day' in request.GET:
             queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
+
+        # Apply custom date range filter
+        if request.GET.get('odp_date_range'):
+            from datetime import date, timedelta
+            today = date.today()
+            yesterday = today - timedelta(days=1)
+
+            odp_date_range = request.GET['odp_date_range']
+            if odp_date_range == 'today':
+                queryset = queryset.filter(odp_date=today)
+            elif odp_date_range == 'yesterday':
+                queryset = queryset.filter(odp_date=yesterday)
+            elif odp_date_range == 'today_yesterday':
+                queryset = queryset.filter(odp_date__in=[yesterday, today])
 
         # Get distinct shift values with aggregated loading/unloading sums
         shifts = (
@@ -262,6 +304,143 @@ class DateRangeFilter(admin.SimpleListFilter):
         return queryset
 
 
+class ODPDateRangeFilter(admin.SimpleListFilter):
+    title = _('Date Range')
+    parameter_name = 'odp_date_range'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('today', _('Today')),
+            ('yesterday', _('Yesterday')),
+            ('today_yesterday', _('Today + Yesterday')),
+            ('all', _('All Dates')),
+        ]
+
+    def queryset(self, request, queryset):
+        from datetime import date, timedelta
+
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        if self.value() == 'today':
+            return queryset.filter(odp_date=today)
+        elif self.value() == 'yesterday':
+            return queryset.filter(odp_date=yesterday)
+        elif self.value() == 'today_yesterday':
+            return queryset.filter(odp_date__in=[yesterday, today])
+        elif self.value() == 'all':
+            return queryset
+        return queryset
+
+
+class AttendanceDateFilter(admin.SimpleListFilter):
+    title = _('Attendance Date')
+    parameter_name = 'attendance_date'
+
+    def lookups(self, request, model_admin):
+        from datetime import date, timedelta
+        today = date.today()
+
+        # Create options for the last 7 days
+        options = []
+        for i in range(7):
+            check_date = today - timedelta(days=i)
+            if i == 0:
+                label = _('Today')
+            elif i == 1:
+                label = _('Yesterday')
+            else:
+                label = check_date.strftime('%b %d')  # Format like "Jan 07"
+
+            options.append((check_date.isoformat(), label))
+
+        # Add custom date option
+        options.append(('custom', _('Custom Date')))
+
+        return options
+
+    def queryset(self, request, queryset):
+        # For HangerlineEmp model, this filter only provides date selection
+        # The actual attendance filtering is handled by AttendanceStatusFilter
+        return queryset
+
+
+class AttendanceStatusFilter(admin.SimpleListFilter):
+    title = _('Attendance Status')
+    parameter_name = 'attendance_status'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('present', _('Present')),
+            ('absent', _('Absent')),
+        ]
+
+    def queryset(self, request, queryset):
+        # Get the selected attendance date
+        attendance_date = request.GET.get('attendance_date')
+        if not attendance_date:
+            return queryset
+
+        # Parse the date
+        from datetime import date
+        try:
+            if attendance_date in ['today', 'yesterday']:
+                today = date.today()
+                if attendance_date == 'today':
+                    check_date = today
+                else:  # yesterday
+                    check_date = today.replace(day=today.day - 1)
+            else:
+                # ISO format date string
+                check_date = date.fromisoformat(attendance_date)
+        except (ValueError, AttributeError):
+            return queryset
+
+        # Get employee IDs that have production records for the selected date
+        present_employee_ids = set(
+            OperatorDailyPerformance.objects.filter(
+                odp_date=check_date
+            ).values_list('odp_em_key', flat=True)
+        )
+
+        if self.value() == 'present':
+            # Filter to employees who have records (Present)
+            return queryset.filter(id__in=present_employee_ids)
+        elif self.value() == 'absent':
+            # Filter to employees who don't have records (Absent)
+            return queryset.exclude(id__in=present_employee_ids)
+
+        return queryset
+
+
+class LineDescFilter(admin.SimpleListFilter):
+    """Custom filter to show only line-21 to line-32"""
+    title = _('Line')
+    parameter_name = 'line_desc'
+
+    def lookups(self, request, model_admin):
+        # Define the lines we want to show (line-21 to line-32)
+        lines = [f'line-{i}' for i in range(21, 33)]
+
+        # Query for counts
+        queryset = HangerlineEmp.objects.filter(line_desc__in=lines)
+
+        # Get employee counts per line
+        line_counts = {}
+        for line in lines:
+            count = queryset.filter(line_desc=line).count()
+            if count > 0:  # Only include lines that have employees
+                line_counts[line] = count
+
+        # Return as lookups with counts
+        return [(line, f'{line.upper()} ({count})') for line, count in sorted(line_counts.items())]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(line_desc=self.value())
+        return queryset
+
+
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     list_display = ('fg_articleno', 'basearticleno','tis_stylecollection', 'tis_stylesize', 'tis_stylecolour')
@@ -271,17 +450,164 @@ class ArticleAdmin(admin.ModelAdmin):
 
 @admin.register(HangerlineEmp)
 class HangerlineEmpAdmin(admin.ModelAdmin):
-    list_display = ('emp_id', 'title', 'desig_id', 'line_desc', 'shift', 'activestatus')
+    list_display = ('emp_id', 'title', 'desig_id', 'line_desc', 'shift', 'activestatus', 'attendance_status')
     search_fields = ('id', 'title', 'nic', 'mobile')
-    list_filter = ('line_desc', 'shift', 'gender',)
+    list_filter = (AttendanceDateFilter, AttendanceStatusFilter, LineDescFilter, 'shift', 'gender',)
     date_hierarchy = 'joindate'
+    change_list_template = 'admin/hangerline/hangerlineemp/changelist_result.html'
+
+    def attendance_status(self, obj):
+        """Check if employee was present/absent on selected date"""
+        from datetime import date
+
+        # Get the selected attendance date from request
+        request = getattr(self, '_request', None)
+        if not request:
+            return 'N/A'
+
+        selected_date = request.GET.get('attendance_date')
+        if not selected_date:
+            return 'N/A'
+
+        # Handle different date formats
+        if selected_date == 'custom':
+            # For custom date, we might need additional handling
+            return 'N/A'
+        else:
+            try:
+                # Parse the date
+                if selected_date in ['today', 'yesterday']:
+                    # These are labels, get actual dates
+                    today = date.today()
+                    if selected_date == 'today':
+                        check_date = today
+                    else:  # yesterday
+                        check_date = today.replace(day=today.day - 1)
+                else:
+                    # ISO format date string
+                    check_date = date.fromisoformat(selected_date)
+
+                # Check if employee has any production records for this date
+                has_records = OperatorDailyPerformance.objects.filter(
+                    odp_em_key=obj.id,
+                    odp_date=check_date
+                ).exists()
+
+                return 'Present' if has_records else 'Absent'
+            except (ValueError, AttributeError):
+                return 'N/A'
+
+    attendance_status.short_description = 'Attendance Status'
+
+    def changelist_view(self, request, extra_context=None):
+        """Store request for use in attendance_status method and add attendance summary"""
+        self._request = request
+
+        extra_context = extra_context or {}
+
+        # Calculate attendance summary for selected date
+        attendance_date = request.GET.get('attendance_date')
+        if attendance_date:
+            from datetime import date
+            try:
+                # Parse the date
+                if attendance_date in ['today', 'yesterday']:
+                    today = date.today()
+                    if attendance_date == 'today':
+                        check_date = today
+                    else:  # yesterday
+                        check_date = today.replace(day=today.day - 1)
+                else:
+                    # ISO format date string
+                    check_date = date.fromisoformat(attendance_date)
+
+                # Get all employees for the selected date's line/shift combinations
+                line_filter = request.GET.get('line_desc')
+                shift_filter = request.GET.get('shift')
+
+                # Start with all employees, but restrict to lines 21-32 for summary cards
+                target_lines = [f'line-{i}' for i in range(21, 33)]
+                employees_query = HangerlineEmp.objects.filter(line_desc__in=target_lines)
+
+                # Apply additional line and shift filters if selected
+                if line_filter:
+                    employees_query = employees_query.filter(line_desc=line_filter)
+                if shift_filter:
+                    employees_query = employees_query.filter(shift=shift_filter)
+
+                total_employees = employees_query.count()
+
+                # Get employee IDs that have production records for the selected date
+                present_employee_ids = set(
+                    OperatorDailyPerformance.objects.filter(
+                        odp_date=check_date
+                    ).values_list('odp_em_key', flat=True)
+                )
+
+                # Calculate present/absent counts
+                present_count = employees_query.filter(id__in=present_employee_ids).count()
+                absent_count = total_employees - present_count
+
+                # Calculate line-wise attendance - only show lines 21-32
+                from django.db.models import Count, Q
+
+                # Define lines we want to show (21-32)
+                target_lines = [f'line-{i}' for i in range(21, 33)]
+
+                line_attendance = []
+                # Always show line breakdown for lines 21-32, but filter based on selected line if any
+                if not line_filter:
+                    # No specific line selected - show all lines 21-32
+                    lines_to_show = target_lines
+                else:
+                    # Specific line selected - only show that line if it's in our target range
+                    lines_to_show = [line_filter] if line_filter in target_lines else []
+
+                for line_name in lines_to_show:
+                    line_employees = employees_query.filter(line_desc=line_name)
+                    line_total = line_employees.count()
+
+                    if line_total > 0:  # Only include lines that have employees
+                        # Get present count for this line
+                        line_present_ids = set(
+                            OperatorDailyPerformance.objects.filter(
+                                odp_date=check_date,
+                                odp_em_key__in=line_employees.values_list('id', flat=True)
+                            ).values_list('odp_em_key', flat=True)
+                        )
+                        line_present_count = len(line_present_ids)
+                        line_absent_count = line_total - line_present_count
+
+                        line_attendance.append({
+                            'line': line_name,
+                            'total': line_total,
+                            'present': line_present_count,
+                            'absent': line_absent_count,
+                            'present_percent': round((line_present_count / line_total * 100), 1) if line_total > 0 else 0
+                        })
+
+                extra_context.update({
+                    'attendance_summary': {
+                        'date': check_date,
+                        'total_employees': total_employees,
+                        'present_count': present_count,
+                        'absent_count': absent_count,
+                        'present_percent': round((present_count / total_employees * 100), 1) if total_employees > 0 else 0,
+                        'line_attendance': line_attendance
+                    }
+                })
+
+            except (ValueError, AttributeError):
+                pass  # Invalid date, don't show summary
+
+        return super().changelist_view(request, extra_context)
 
 
 @admin.register(OperatorDailyPerformance)
 class OperatorDailyPerformanceAdmin(admin.ModelAdmin):
     list_display = ('odp_date', 'shift', 'odp_em_key', 'em_firstname', 'odpd_quantity', 'oc_description', 'st_id', 'odpd_lot_number', 'source_connection')
     search_fields = ('em_firstname', 'em_lastname', 'odp_em_key', 'odpd_lot_number','st_id','oc_description')
-    list_filter = ('odp_date', ShiftFilter, SourceConnectionFilter, ProductionFilter, 'odpd_is_overtime')
+    list_filter = (ODPDateRangeFilter, 'odp_date', ShiftFilter, SourceConnectionFilter, ProductionFilter, 'odpd_is_overtime')
     date_hierarchy = 'odp_date'
     readonly_fields = ('created_at',)
 
@@ -304,50 +630,16 @@ class OperatorDailyPerformanceAdmin(admin.ModelAdmin):
 
         return render(request, 'admin/hangerline/dashboard.html', context)
 
-    # def changelist_view(self, request, extra_context=None):
-    #     """Override changelist view to add dashboard links"""
-    #     extra_context = extra_context or {}
-    #     extra_context.update({
-    #         'dashboard_links': [
-    #             {
-    #                 'title': '⚛️ React Dashboard',
-    #                 'url': '/dashboard/',
-    #                 'description': 'Modern React interface with dark theme'
-    #             },
-    #             {
-    #                 'title': '🏭 Production Dashboard',
-    #                 'url': '/production-dashboard/',
-    #                 'description': 'Complete Django production analytics with charts'
-    #             },
-    #             {
-    #                 'title': '🔧 Breakdown Dashboard',
-    #                 'url': '/breakdown-dashboard/',
-    #                 'description': 'Breakdown analysis and charts'
-    #             }
-    #         ]
-    #     })
-    #     return super().changelist_view(request, extra_context)
-
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        now = datetime.now()
 
-        # Current month and year
-        current_month = now.month
-        current_year = now.year
+        # Only apply default today filter if no date range filter is active
+        if not request.GET.get('odp_date_range'):
+            from datetime import date
+            today = date.today()
+            qs = qs.filter(odp_date=today)
 
-        # Last month and year (handle January -> December of previous year)
-        if current_month == 1:
-            last_month = 12
-            last_year = current_year - 1
-        else:
-            last_month = current_month - 1
-            last_year = current_year
-
-        return qs.filter(
-            Q(odp_date__year=current_year, odp_date__month=current_month) |
-            Q(odp_date__year=last_year, odp_date__month=last_month)
-        )
+        return qs
 
     fieldsets = (
         ('Employee Info', {
@@ -418,9 +710,9 @@ class QualityControlRepairAdmin(admin.ModelAdmin):
 
 @admin.register(Loadinginformation)
 class LoadinginformationAdmin(admin.ModelAdmin):
-    list_display = ('dated','id', 'pono', 'item_id', 'title', 'fg_colour', 'fg_size','bundleno', 'qty', 'line_id')
-    search_fields = ('pono', 'item_id', 'title', 'fg_articleno', 'barcode', 'fg_colour', 'model', 'id')
-    list_filter = ('line_id', 'maindeptt_id', 'fg_colour', 'fg_size')
+    list_display = ('dated','id', 'pono', 'item_id', 'title','bundleno', 'qty','line_desc')
+    search_fields = ('pono', 'item_id', 'title', 'fg_articleno', 'barcode')
+    list_filter = ('dated','line_desc', 'item_id')
     date_hierarchy = 'dated'
     ordering = ['-dated']
 
@@ -481,13 +773,215 @@ class StyleAdmin(admin.ModelAdmin):
     ordering = ('style_key',)
 
 
+class POProductionDateFilter(admin.SimpleListFilter):
+    title = _('Production Activity Date')
+    parameter_name = 'po_production_date'
+
+    def lookups(self, request, model_admin):
+        from datetime import date, timedelta
+        today = date.today()
+
+        # Create options for the last 7 days
+        options = []
+        for i in range(7):
+            check_date = today - timedelta(days=i)
+            if i == 0:
+                label = 'Today'
+            elif i == 1:
+                label = 'Yesterday'
+            else:
+                label = check_date.strftime('%b %d')  # Format like "Jan 07"
+
+            options.append((check_date.isoformat(), label))
+
+        # Add custom date option
+        options.append(('custom', 'Custom Date'))
+
+        return options
+
+    def queryset(self, request, queryset):
+        return queryset  # No filtering on the main queryset, used only for context
+
+
 @admin.register(ClientPurchaseOrder)
 class ClientPurchaseOrderAdmin(admin.ModelAdmin):
     list_display = ('id', 'pono', 'client_title', 'articleno', 'item_title', 'po_qty', 'clientpodate')
     search_fields = ('pono', 'client_title', 'articleno', 'item_title')
-    list_filter = ('client_title', 'pono', 'articleno')
+    list_filter = ('client_title',  POProductionDateFilter,'pono', 'articleno',)
     date_hierarchy = 'clientpodate'
     ordering = ['-clientpodate']
+    change_list_template = 'admin/hangerline/clientpurchaseorder/change_list.html'
+
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist view to add PO summary dashboard link"""
+        extra_context = extra_context or {}
+
+        # Get the selected production date filter value
+        selected_date = request.GET.get('po_production_date', '')
+
+        # Build the URL with the selected date parameter if available
+        base_url = '/admin/hangerline/clientpurchaseorder/po-summary/'
+        if selected_date and selected_date != 'custom':
+            url = f'{base_url}?po_production_date={selected_date}'
+        else:
+            url = base_url
+
+        extra_context.update({
+            'dashboard_links': [
+                {
+                    'title': '📦 PO Progress Summary',
+                    'url': url,
+                    'description': f'View PO progress with summary cards and progress bars{f" (filtered by: {selected_date})" if selected_date and selected_date != "custom" else ""}'
+                }
+            ]
+        })
+        return super().changelist_view(request, extra_context)
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom_urls = [
+            path('po-summary/', self.po_summary_view, name='po_summary_dashboard'),
+        ]
+        return custom_urls + urls
+
+    def po_summary_view(self, request):
+        """PO Progress Summary Dashboard with summary cards and progress bars"""
+        from django.db.models import Sum, Min, Q
+        from django.shortcuts import render
+        from datetime import date, timedelta
+
+        # Get PO summary data using Django ORM equivalent of the SQL query
+        po_data = []
+
+        # Get date range from request parameters, default to today and yesterday
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+
+        # Parse dates or use defaults
+        if start_date_str:
+            try:
+                start_date = date.fromisoformat(start_date_str)
+            except (ValueError, AttributeError):
+                start_date = None
+        else:
+            start_date = None
+
+        if end_date_str:
+            try:
+                end_date = date.fromisoformat(end_date_str)
+            except (ValueError, AttributeError):
+                end_date = None
+        else:
+            end_date = None
+
+        # Default to today and yesterday if no dates provided
+        if not start_date or not end_date:
+            today = date.today()
+            yesterday = today - timedelta(days=1)
+            start_date = yesterday
+            end_date = today
+
+        # Get the selected production date from filter (for backward compatibility)
+        selected_date = request.GET.get('po_production_date')
+        if selected_date and selected_date != 'custom':
+            try:
+                # If a specific date is selected, override the date range
+                filter_date = date.fromisoformat(selected_date)
+                start_date = filter_date
+                end_date = filter_date
+            except (ValueError, AttributeError):
+                pass  # Keep the existing date range
+
+        # Get POs that have production records in the selected date range
+        pos_with_recent_production = OperatorDailyPerformance.objects.filter(
+            odp_date__gte=start_date,
+            odp_date__lte=end_date,
+            unloading_qty__gt=0
+        ).values_list('odpd_lot_number', flat=True).distinct()
+
+        # Get all POs with their quantities, but only those with recent production
+        pos = ClientPurchaseOrder.objects.filter(
+            pono__in=pos_with_recent_production
+        ).annotate(
+            po_start_date=Min('clientpodate')
+        ).values('pono', 'po_start_date').annotate(
+            po_qty=Sum('po_qty')
+        ).order_by('pono')
+
+        for po in pos:
+            pono = po['pono']
+            po_start_date = po['po_start_date']
+            po_qty = po['po_qty'] or 0
+
+            # Skip POs with null start dates or handle them with a fallback
+            if po_start_date is None:
+                # Use a very old date as fallback for POs with no start date
+                from datetime import date
+                po_start_date = date(2000, 1, 1)  # Fallback date
+
+            # Get cumulative produced quantity from PO start to today
+            produced_qty = OperatorDailyPerformance.objects.filter(
+                odpd_lot_number=pono,
+                odp_date__gte=po_start_date,
+                odp_date__lte=date.today(),
+                unloading_qty__gt=0
+            ).aggregate(total=Sum('unloading_qty'))['total'] or 0
+
+            # Get cumulative transferred quantity from PO start to today
+            transferred_qty = TransferToPacking.objects.filter(
+                pono=pono,
+                proddate__gte=po_start_date,
+                proddate__lte=date.today()
+            ).aggregate(total=Sum('qtytransferred'))['total'] or 0
+
+            # Calculate derived values
+            pending_po_qty = po_qty - produced_qty
+            in_hand_sewing = produced_qty - transferred_qty
+
+            # Calculate completion percentage
+            completion_percent = round((produced_qty / po_qty * 100), 1) if po_qty > 0 else 0
+
+            po_data.append({
+                'pono': pono,
+                'po_start_date': po_start_date,
+                'po_qty': po_qty,
+                'todate_produced': produced_qty,
+                'todate_transfer': transferred_qty,
+                'pending_po_qty': max(0, pending_po_qty),  # Ensure not negative
+                'in_hand_sewing': max(0, in_hand_sewing),  # Ensure not negative
+                'completion_percent': completion_percent
+            })
+
+        # Calculate summary statistics
+        total_pos = len(po_data)
+        total_po_qty = sum(po['po_qty'] for po in po_data)
+        total_produced = sum(po['todate_produced'] for po in po_data)
+        total_transferred = sum(po['todate_transfer'] for po in po_data)
+        total_pending = sum(po['pending_po_qty'] for po in po_data)
+        total_in_hand = sum(po['in_hand_sewing'] for po in po_data)
+
+        # Calculate overall completion percentage
+        overall_completion = round((total_produced / total_po_qty * 100), 1) if total_po_qty > 0 else 0
+
+        summary_stats = {
+            'total_pos': total_pos,
+            'total_po_qty': total_po_qty,
+            'total_produced': total_produced,
+            'total_transferred': total_transferred,
+            'total_pending': total_pending,
+            'total_in_hand': total_in_hand,
+            'overall_completion': overall_completion
+        }
+
+        context = {
+            'title': 'PO Progress Summary',
+            'po_data': po_data,
+            'summary_stats': summary_stats,
+            'has_permission': self.has_view_permission(request),
+        }
+
+        return render(request, 'admin/hangerline/clientpurchaseorder/po_summary.html', context)
 
 
 @admin.register(BreakdownCategory)
@@ -698,6 +1192,7 @@ class BreakdownAdmin(admin.ModelAdmin):
     date_hierarchy = 'p_date'
     ordering = ('-p_date', '-time_start')
     autocomplete_fields = ['breakdown_category']
+    change_list_template = 'admin/hangerline/breakdown/change_list.html'
 
     fieldsets = (
         ('Basic Info', {
@@ -725,29 +1220,29 @@ class BreakdownAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    # def changelist_view(self, request, extra_context=None):
-    #     """Override changelist view to add dashboard links"""
-    #     extra_context = extra_context or {}
-    #     extra_context.update({
-    #         'dashboard_links': [
-    #             {
-    #                 'title': '⚛️ React Dashboard',
-    #                 'url': '/dashboard/',
-    #                 'description': 'Modern React interface with dark theme'
-    #             },
-    #             {
-    #                 'title': '🏭 Production Dashboard',
-    #                 'url': '/production-dashboard/',
-    #                 'description': 'Complete Django production analytics with charts'
-    #             },
-    #             {
-    #                 'title': '🔧 Breakdown Dashboard',
-    #                 'url': '/breakdown-dashboard/',
-    #                 'description': 'Breakdown analysis and charts'
-    #             }
-    #         ]
-    #     })
-    #     return super().changelist_view(request, extra_context)
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist view to add dashboard links"""
+        extra_context = extra_context or {}
+        extra_context.update({
+            'dashboard_links': [
+                {
+                    'title': '🔧 Breakdown Dashboard',
+                    'url': 'http://localhost:8002/breakdown-dashboard/',
+                    'description': 'Breakdown analysis and charts'
+                },
+                {
+                    'title': '🏭 Production Dashboard',
+                    'url': 'http://localhost:8002/hangerline/dashboard/',
+                    'description': 'Complete Django production analytics with charts'
+                },
+                {
+                    'title': '📦 PO Progress Summary',
+                    'url': '/admin/hangerline/clientpurchaseorder/po-summary/',
+                    'description': 'View PO progress with summary cards and progress bars'
+                }
+            ]
+        })
+        return super().changelist_view(request, extra_context)
 
     def dashboard_view(self, request):
         """Dashboard view showing breakdown summary and pie chart by category"""
