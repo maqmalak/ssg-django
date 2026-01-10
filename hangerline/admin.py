@@ -1227,12 +1227,12 @@ class BreakdownAdmin(admin.ModelAdmin):
             'dashboard_links': [
                 {
                     'title': '🔧 Breakdown Dashboard',
-                    'url': 'http://localhost:8002/breakdown-dashboard/',
+                    'url': '/breakdown-dashboard/',
                     'description': 'Breakdown analysis and charts'
                 },
                 {
                     'title': '🏭 Production Dashboard',
-                    'url': 'http://localhost:8002/hangerline/dashboard/',
+                    'url': '/admin/hangerline/operatordailyperformance/dashboard/',
                     'description': 'Complete Django production analytics with charts'
                 },
                 {
