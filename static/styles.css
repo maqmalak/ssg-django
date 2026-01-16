@@ -1,0 +1,31 @@
+/* Keep this file for any non-Tailwind additions that should not live inside the Tailwind style tag. */
+
+:root {
+  color-scheme: dark;
+}
+
+canvas {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
+
+/* Subtle scrollbars */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  border: 2px solid rgba(2, 6, 23, 0.5);
+}
+*::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.35);
+}

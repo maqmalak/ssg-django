@@ -103,12 +103,6 @@ function LineComparisonTable({ rows, totals }) {
       return 'text-white/90';
     };
 
-    const rowBgCls = (tone) => {
-      if (tone === 'positive') return 'bg-green-900/30 border-green-500/30';
-      if (tone === 'negative') return 'bg-red-900/30 border-red-500/30';
-      return 'bg-slate-700/20 border-slate-600/20';
-    };
-
     const sortIconClass = (colKey) => {
       try {
         if (!sort || sort.key !== colKey) return 'icon-arrow-up-down';
@@ -158,11 +152,11 @@ function LineComparisonTable({ rows, totals }) {
         <div className="mt-4 overflow-x-auto" data-name="table-wrap" data-file="components/LineComparisonTable.js">
           <table className="min-w-[1200px] w-full border-separate border-spacing-y-2" data-name="table" data-file="components/LineComparisonTable.js">
             <thead data-name="thead" data-file="components/LineComparisonTable.js">
-              <tr className="bg-slate-800/50 border-b border-slate-600/50" data-name="head-row" data-file="components/LineComparisonTable.js">
+              <tr data-name="head-row" data-file="components/LineComparisonTable.js">
                 {columns.map((c) => (
                   <th
                     key={c.key}
-                    className={`text-xs font-semibold text-slate-300 px-3 py-3 ${c.align === 'right' ? 'text-right' : 'text-left'} border-r border-slate-600/30 last:border-r-0`}
+                    className={`text-xs font-semibold text-[var(--muted-text)] px-3 py-2 ${c.align === 'right' ? 'text-right' : 'text-left'}`}
                     data-name="th"
                     data-file="components/LineComparisonTable.js"
                   >
@@ -187,7 +181,7 @@ function LineComparisonTable({ rows, totals }) {
                 return (
                   <tr
                     key={r.line}
-                    className={`${rowBgCls(tone)} hover:bg-white/8 transition`}
+                    className="bg-white/5 border border-white/10 hover:bg-white/8 transition"
                     data-name="row"
                     data-file="components/LineComparisonTable.js"
                   >
@@ -211,7 +205,7 @@ function LineComparisonTable({ rows, totals }) {
                 );
               })}
 
-              <tr className="bg-slate-800/30 border border-slate-600/30" data-name="totals-row" data-file="components/LineComparisonTable.js">
+              <tr className="bg-white/10 border border-white/10" data-name="totals-row" data-file="components/LineComparisonTable.js">
                 <td className="px-3 py-3 text-sm font-semibold text-white" data-name="totals-label" data-file="components/LineComparisonTable.js">Totals</td>
                 <td className="px-3 py-3 text-sm text-right text-white/90" data-name="totals-loading" data-file="components/LineComparisonTable.js">{window.Formatters.formatNumber(totalsSafe.loading)}</td>
                 <td className="px-3 py-3 text-sm text-right text-white/90" data-name="totals-offloading" data-file="components/LineComparisonTable.js">{window.Formatters.formatNumber(totalsSafe.offloading)}</td>
