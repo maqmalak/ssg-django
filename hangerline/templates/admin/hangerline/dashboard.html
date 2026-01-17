@@ -267,6 +267,27 @@
 
     // FilterBar Component
     function FilterBar({ filters, setFilters, onApply }) {
+      const onFetchDropdowns = async () => {
+        try {
+          console.log('🔄 Fetching dropdown options with current date range...');
+
+          // Get current date values from input fields
+          const startDateInput = document.querySelector('input[type="date"]');
+          const endDateInput = document.querySelectorAll('input[type="date"]')[1];
+
+          const startDate = startDateInput ? startDateInput.value : filters.startDate;
+          const endDate = endDateInput ? endDateInput.value : filters.endDate;
+
+          console.log('📅 Using date range:', { startDate, endDate });
+
+          // Fetch dropdown options with current date range
+          await window.fetchDropdownOptions(startDate, endDate);
+
+          console.log('✅ Dropdown options updated successfully');
+        } catch (error) {
+          console.error('❌ Failed to fetch dropdown options:', error);
+        }
+      };
       const lineOptions = ['All', 'line-21', 'line-22', 'line-23', 'line-24', 'line-25', 'line-26', 'line-27', 'line-28', 'line-29', 'line-30', 'line-31', 'line-32'];
       const shiftOptions = ['All', 'Day', 'Night'];
 
@@ -409,9 +430,16 @@
                 </div>
               </div>
 
-              <div className="flex items-end">
+              <div className="flex items-end gap-3">
                 <button
-                  className="btn-primary w-full"
+                  className="btn-ghost flex-1"
+                  onClick={onFetchDropdowns}
+                >
+                  <div className="icon-database text-xl text-white"></div>
+                  <span>Fetch PO & ST</span>
+                </button>
+                <button
+                  className="btn-primary flex-1"
                   onClick={onApply}
                 >
                   <div className="icon-list-filter text-xl text-white"></div>
@@ -1405,10 +1433,9 @@
             'rgba(16,185,129,.8)'   // emerald-500
           ];
 
-          // Sort lines by efficiency and take top 8
+          // Sort lines by efficiency and show all lines
           const topLines = lineRows
-            .sort((a, b) => (b.efficiency || 0) - (a.efficiency || 0))
-            .slice(0, 8);
+            .sort((a, b) => (b.efficiency || 0) - (a.efficiency || 0));
 
           pieCharts.linePerformance = topLines.map((line, index) => ({
             label: line.line || `Line ${index + 1}`,
@@ -1567,13 +1594,40 @@
           console.log('🎯 Applying filters:', this.state.filters);
           this.setState({ loading: true });
 
-          // Update dropdown options based on date range before fetching data
+          // Use dates directly as selected by user (no timezone conversion)
+          const filters = { ...this.state.filters };
+
+          console.log('📅 Using selected dates directly:', {
+            startDate: filters.startDate,
+            endDate: filters.endDate
+          });
+
+          // Update dropdown options based on selected date range
+          // If date range is too narrow (same day), expand it to ensure data exists
+          let dropdownStartDate = filters.startDate;
+          let dropdownEndDate = filters.endDate;
+
+          if (filters.startDate === filters.endDate) {
+            // Single day selected - expand to 30 days for dropdown population
+            const selectedDate = new Date(filters.startDate);
+            const thirtyDaysAgo = new Date(selectedDate);
+            thirtyDaysAgo.setDate(selectedDate.getDate() - 30);
+
+            dropdownStartDate = thirtyDaysAgo.toISOString().slice(0, 10);
+            dropdownEndDate = filters.endDate;
+
+            console.log('📅 Single day selected, expanding dropdown range:', {
+              original: filters.startDate,
+              expanded: { startDate: dropdownStartDate, endDate: dropdownEndDate }
+            });
+          }
+
           if (window.fetchDropdownOptions) {
             console.log('🔄 Updating dropdown options for date range:', {
-              startDate: this.state.filters.startDate,
-              endDate: this.state.filters.endDate
+              startDate: dropdownStartDate,
+              endDate: dropdownEndDate
             });
-            await window.fetchDropdownOptions(this.state.filters.startDate, this.state.filters.endDate);
+            await window.fetchDropdownOptions(dropdownStartDate, dropdownEndDate);
 
             // Reset PO ID and ST ID selections to 'All' since options changed
             this.setState(prevState => ({
@@ -1585,20 +1639,28 @@
             }));
           }
 
-          // Fetch new data with applied filters (now including updated po_id and st_id as 'All')
-          const newData = await this.fetchFilteredData(this.state.filters);
+          // Fetch new data with selected filters
+          const newData = await this.fetchFilteredData(filters);
           console.log('📊 Filter response received:', newData);
+          console.log('🔍 Detailed filter analysis:', {
+            filters: filters,
+            hasSummary: !!(newData && newData.summary),
+            summaryKeys: newData && newData.summary ? Object.keys(newData.summary) : [],
+            hasLineRows: !!(newData && newData.lineComparisonRows && newData.lineComparisonRows.length > 0),
+            lineRowsCount: newData && newData.lineComparisonRows ? newData.lineComparisonRows.length : 0
+          });
 
           if (newData && newData.summary) {
             console.log('✅ Filter successful - new summary:', newData.summary);
           } else {
-            console.warn('⚠️ Filter response missing expected data structure');
+            console.warn('⚠️ Filter response missing expected data structure - check if filters are too restrictive');
+            console.warn('💡 Try using broader filters or different date ranges');
           }
 
           this.addToast({
             type: 'success',
             title: 'Filters Applied',
-            message: 'Dashboard updated with new filter settings and refreshed dropdown options.'
+            message: 'Dashboard updated with selected date filtering and refreshed dropdown options.'
           });
         } catch (error) {
           console.error('💥 Filter application error:', error);
@@ -2013,8 +2075,8 @@
                       </div>
                       <div className="text-white font-semibold">Production vs Target</div>
                     </div>
-                    <div className="h-48 flex items-center justify-center">
-                      <canvas ref={this.productionPieRef} width="200" height="200"></canvas>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.productionPieRef} width="250" height="300"></canvas>
                     </div>
                   </div>
 
@@ -2026,8 +2088,8 @@
                       </div>
                       <div className="text-white font-semibold">Defect Reason</div>
                     </div>
-                    <div className="h-48 flex items-center justify-center">
-                      <canvas ref={this.defectPieRef} width="200" height="200"></canvas>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.defectPieRef} width="250" height="300"></canvas>
                     </div>
                   </div>
 
@@ -2039,8 +2101,8 @@
                       </div>
                       <div className="text-white font-semibold">Line Efficiency %</div>
                     </div>
-                    <div className="h-48 flex items-center justify-center">
-                      <canvas ref={this.linePieRef} width="200" height="200"></canvas>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.linePieRef} width="300" height="400"></canvas>
                     </div>
                   </div>
 
@@ -2052,8 +2114,8 @@
                       </div>
                       <div className="text-white font-semibold">Shift Distribution</div>
                     </div>
-                    <div className="h-48 flex items-center justify-center">
-                      <canvas ref={this.shiftPieRef} width="200" height="200"></canvas>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.shiftPieRef} width="300" height="400"></canvas>
                     </div>
                   </div>
                 </div>
@@ -2096,20 +2158,29 @@
     // Function to fetch and populate dropdown options
     const fetchDropdownOptions = async (startDate, endDate) => {
       try {
-        console.log('Fetching PO ID and ST ID options for date range:', { startDate, endDate });
+        console.log('🔄 fetchDropdownOptions called with:', { startDate, endDate });
 
         // Clear existing options (except "All")
         const poSelect = document.getElementById('po-id-select');
         const stSelect = document.getElementById('st-id-select');
 
+        console.log('🔍 DOM elements found:', {
+          poSelect: !!poSelect,
+          stSelect: !!stSelect,
+          poSelectId: poSelect?.id,
+          stSelectId: stSelect?.id
+        });
+
         if (poSelect) {
           // Keep only the "All" option
           poSelect.innerHTML = '<option value="All">All</option>';
+          console.log('✅ PO select cleared, now has', poSelect.options.length, 'options');
         }
 
         if (stSelect) {
           // Keep only the "All" option
           stSelect.innerHTML = '<option value="All">All</option>';
+          console.log('✅ ST select cleared, now has', stSelect.options.length, 'options');
         }
 
         // Build query parameters
@@ -2118,10 +2189,19 @@
         if (endDate) params.append('end_date', endDate);
         const queryString = params.toString();
 
+        console.log('🌐 API URLs:', {
+          poUrl: `http://localhost:3002/api/po-ids?${queryString}`,
+          stUrl: `http://localhost:3002/api/st-ids?${queryString}`
+        });
+
         // Fetch PO IDs
         const poResponse = await fetch(`http://localhost:3002/api/po-ids?${queryString}`);
+        console.log('📊 PO API response:', { status: poResponse.status, ok: poResponse.ok });
+
         if (poResponse.ok) {
           const poData = await poResponse.json();
+          console.log('📦 PO data received:', poData);
+
           if (poSelect && poData.po_ids) {
             poData.po_ids.forEach(poId => {
               const option = document.createElement('option');
@@ -2129,16 +2209,22 @@
               option.textContent = poId;
               poSelect.appendChild(option);
             });
-            console.log(`Loaded ${poData.po_ids.length} PO ID options`);
+            console.log(`✅ Loaded ${poData.po_ids.length} PO ID options, total options:`, poSelect.options.length);
+          } else {
+            console.warn('⚠️ PO select not found or no po_ids in response');
           }
         } else {
-          console.error('Failed to fetch PO IDs:', poResponse.status);
+          console.error('❌ Failed to fetch PO IDs:', poResponse.status, await poResponse.text());
         }
 
         // Fetch ST IDs
         const stResponse = await fetch(`http://localhost:3002/api/st-ids?${queryString}`);
+        console.log('📊 ST API response:', { status: stResponse.status, ok: stResponse.ok });
+
         if (stResponse.ok) {
           const stData = await stResponse.json();
+          console.log('🏷️ ST data received:', stData);
+
           if (stSelect && stData.st_ids) {
             stData.st_ids.forEach(stId => {
               const option = document.createElement('option');
@@ -2146,23 +2232,40 @@
               option.textContent = stId;
               stSelect.appendChild(option);
             });
-            console.log(`Loaded ${stData.st_ids.length} ST ID options`);
+            console.log(`✅ Loaded ${stData.st_ids.length} ST ID options, total options:`, stSelect.options.length);
+          } else {
+            console.warn('⚠️ ST select not found or no st_ids in response');
           }
         } else {
-          console.error('Failed to fetch ST IDs:', stResponse.status);
+          console.error('❌ Failed to fetch ST IDs:', stResponse.status, await stResponse.text());
         }
+
+        console.log('🎉 fetchDropdownOptions completed successfully');
       } catch (error) {
-        console.error('Error loading dropdown options:', error);
+        console.error('💥 Error in fetchDropdownOptions:', error);
       }
     };
 
     // Fetch initial dropdown options after component mounts
     setTimeout(async () => {
-      await fetchDropdownOptions(
-        new Date().toISOString().slice(0, 10),
-        new Date().toISOString().slice(0, 10)
-      );
-    }, 2000); // Wait 2 seconds for React to mount
+      console.log('🔄 Initializing dropdown options...');
+      try {
+        // Use a broader date range for initial load to ensure data exists
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+
+        const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
+        const endDate = today.toISOString().slice(0, 10);
+
+        console.log('📅 Initial load using date range:', { startDate, endDate });
+
+        await fetchDropdownOptions(startDate, endDate);
+        console.log('✅ Initial dropdown options loaded');
+      } catch (error) {
+        console.error('❌ Failed to load initial dropdown options:', error);
+      }
+    }, 3000); // Increased delay to ensure React is fully mounted
 
     // Make fetchDropdownOptions available globally for date filter updates
     window.fetchDropdownOptions = fetchDropdownOptions;
