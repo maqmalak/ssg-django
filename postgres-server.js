@@ -122,6 +122,60 @@ app.get('/api/st-ids', async (req, res) => {
   }
 });
 
+// Production trend endpoint - Returns 30-day daily aggregated data
+app.get('/api/production-trend', async (req, res) => {
+  try {
+    const { end_date, line, shift, po_id, st_id } = req.query;
+    
+    // Calculate 30 days back from end_date (default to today)
+    const endDate = end_date || new Date().toISOString().split('T')[0];
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 29); // 30 days including end_date
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    const lineFilter = buildLineFilter(line);
+    const shiftFilter = buildShiftFilter(shift);
+    const poFilter = buildPOFilter(po_id);
+    const stidFilter = buildSTIDFilter(st_id);
+    
+    console.log('📈 Fetching 30-day trend data from', startDateStr, 'to', endDate);
+    
+    // Query daily aggregates for last 30 days (MUST match production-data query exactly)
+    const result = await pool.query(`
+      SELECT
+        odp.odp_date::TEXT as date,
+        SUM(CASE WHEN odp.oc_description = 'Loading/Panel Segregation' 
+            THEN odp.odpd_quantity ELSE 0 END) AS loading,
+        SUM(CASE WHEN odp.oc_description = 'Garment Insert in Poly Bag & Close' 
+            THEN odp.odpd_quantity ELSE 0 END) AS offloading,
+        SUM(CASE WHEN odp.oc_description = 'Loading/Panel Segregation' 
+            THEN odp.odpd_quantity ELSE 0 END) - 
+        SUM(CASE WHEN odp.oc_description = 'Garment Insert in Poly Bag & Close' 
+            THEN odp.odpd_quantity ELSE 0 END) AS wip
+      FROM operator_daily_performance odp
+      WHERE odp.odp_date >= $1::date AND odp.odp_date <= $2::date
+        AND odp.source_connection IN ${lineFilter.replace(/\$/g, '$$')}
+        AND odp.shift IN ${shiftFilter.replace(/\$/g, '$$')}
+        AND odp.odpd_lot_number ${poFilter.replace(/\$/g, '$$')}
+        AND odp.st_id ${stidFilter.replace(/\$/g, '$$')}
+        AND odp.oc_description IN ('Loading/Panel Segregation', 'Garment Insert in Poly Bag & Close')
+      GROUP BY odp.odp_date
+      ORDER BY odp.odp_date ASC
+    `, [startDateStr, endDate]);
+    
+    console.log(`✅ Trend data fetched: ${result.rows.length} days`);
+    
+    res.json({ 
+      trendData: result.rows,
+      dateRange: { start: startDateStr, end: endDate },
+      dataPoints: result.rows.length
+    });
+  } catch (error) {
+    console.error('❌ Trend data error:', error);
+    res.status(500).json({ error: 'Failed to fetch trend data', details: error.message });
+  }
+});
+
 // Direct PostgreSQL production data endpoint
 app.get('/api/production-data', async (req, res) => {
   try {
@@ -323,16 +377,16 @@ app.get('/api/production-data', async (req, res) => {
       // Query 6: Breakdown
       pool.query(`
         SELECT SUM(EXTRACT(EPOCH FROM (b.time_end - b.time_start)) / 60) AS duration_minutes
-        FROM breakdown b WHERE b.p_date >= $1::date AND b.p_date <= $2::date
-      `, [startDate, endDate]),
+        FROM breakdown b WHERE b.p_date >= '2026-12-01' AND b.p_date <= $1::date
+      `, [endDate]),
 
       // Query 7: Breakdown by Category
       pool.query(`
         SELECT c.name AS category_name, SUM(EXTRACT(EPOCH FROM (b.time_end - b.time_start)) / 60) AS duration_minutes
         FROM breakdown b JOIN breakdown_category c ON b.breakdown_category_id = c.id
-        WHERE b.p_date >= $1::date AND b.p_date <= $2::date
+        WHERE b.p_date >= '2026-12-01' AND b.p_date <= $1::date
         GROUP BY c.name ORDER BY duration_minutes DESC
-      `, [startDate, endDate]),
+      `, [endDate]),
 
       // Query 8: Defect Reasons
       pool.query(`

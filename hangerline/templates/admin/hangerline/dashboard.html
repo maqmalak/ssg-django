@@ -306,7 +306,7 @@
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3 flex-1">
               <div>
                 <label className="text-xs text-[var(--muted-text)]">Start Date</label>
                 <div className="mt-1">
@@ -709,6 +709,11 @@
 
         // Chart refs
         this.flowChartRef = React.createRef();
+        this.productionPieRef = React.createRef();
+        this.defectPieRef = React.createRef();
+        this.linePieRef = React.createRef();
+        this.shiftPieRef = React.createRef();
+        this.lineTrendRef = React.createRef();
 
         // Safely load injected data
         let dataBundle = null;
@@ -788,22 +793,46 @@
     console.log('ProductionDashboard mounted successfully with data:', this.state.dataBundle);
     // Automatically apply current date filters on load
     this.onApplyFilters();
-    // Initialize production flow chart
+    // Initialize all charts
     this.initializeProductionFlowChart();
+    this.initializePieCharts();
+    this.initializeLineTrendChart();
   }
 
   componentWillUnmount() {
-    // Destroy chart on unmount
+    // Destroy all charts on unmount
     if (this.flowChartInstance) {
       this.flowChartInstance.destroy();
       this.flowChartInstance = null;
     }
+    if (this.productionPieInstance) {
+      this.productionPieInstance.destroy();
+      this.productionPieInstance = null;
+    }
+    if (this.defectPieInstance) {
+      this.defectPieInstance.destroy();
+      this.defectPieInstance = null;
+    }
+    if (this.linePieInstance) {
+      this.linePieInstance.destroy();
+      this.linePieInstance = null;
+    }
+    if (this.shiftPieInstance) {
+      this.shiftPieInstance.destroy();
+      this.shiftPieInstance = null;
+    }
+    if (this.lineTrendInstance) {
+      this.lineTrendInstance.destroy();
+      this.lineTrendInstance = null;
+    }
   }
 
   componentDidUpdate(prevProps, prevState) {
-    // Re-initialize chart when data changes
+    // Re-initialize all charts when data changes
     if (prevState.dataBundle !== this.state.dataBundle) {
       this.initializeProductionFlowChart();
+      this.initializePieCharts();
+      this.initializeLineTrendChart();
     }
   }
 
@@ -849,6 +878,14 @@
     const offloadingData = filteredLines.map(row => row.offloading || 0);
     const wipData = filteredLines.map(row => row.wip || 0);
 
+    // Calculate dynamic y-axis maximum based on stacked values
+    const stackedValues = loadingData.map((loading, index) =>
+      (loading || 0) + (offloadingData[index] || 0) + (wipData[index] || 0)
+    );
+    const maxStackedValue = Math.max(...stackedValues, 0);
+    // Add 15% padding and ensure minimum of 100 for small values
+    const dynamicMax = Math.max(maxStackedValue * 1.15, 100);
+
     try {
       this.flowChartInstance = new Chart(canvas, {
         type: 'bar',
@@ -872,7 +909,7 @@
             y: {
               stacked: true,
               min: 0,
-              max: 2000,
+              max: dynamicMax,
               grid: { color: 'rgba(255, 255, 255, 0.1)' },
               ticks: {
                 color: '#9aa8c3',
@@ -892,6 +929,267 @@
       });
     } catch (error) {
       console.error('Error initializing production flow chart:', error);
+    }
+  }
+
+  initializePieCharts = () => {
+    const { dataBundle } = this.state;
+    const pieCharts = dataBundle?.pieCharts || {};
+
+    // Destroy existing pie charts
+    if (this.productionPieInstance) {
+      this.productionPieInstance.destroy();
+      this.productionPieInstance = null;
+    }
+    if (this.defectPieInstance) {
+      this.defectPieInstance.destroy();
+      this.defectPieInstance = null;
+    }
+    if (this.linePieInstance) {
+      this.linePieInstance.destroy();
+      this.linePieInstance = null;
+    }
+    if (this.shiftPieInstance) {
+      this.shiftPieInstance.destroy();
+      this.shiftPieInstance = null;
+    }
+
+    const pieChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '50%', // Donut chart
+      plugins: {
+        legend: {
+          labels: {
+            color: '#e5e7eb', // white text
+            font: { size: 12 }
+          },
+          position: 'bottom'
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#e5e7eb',
+          bodyColor: '#e5e7eb',
+          borderColor: 'rgba(20, 184, 166, 0.3)',
+          borderWidth: 1
+        }
+      }
+    };
+
+    // Production vs Target Pie Chart
+    const productionCanvas = this.productionPieRef.current;
+    if (productionCanvas && pieCharts.productionDistribution && pieCharts.productionDistribution.length > 0) {
+      const productionData = pieCharts.productionDistribution;
+      try {
+        this.productionPieInstance = new Chart(productionCanvas, {
+          type: 'pie',
+          data: {
+            labels: productionData.map(d => d.label),
+            datasets: [{
+              data: productionData.map(d => d.value),
+              backgroundColor: productionData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Production pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating production pie chart:', error);
+      }
+    }
+
+    // Defect Breakdown Pie Chart
+    const defectCanvas = this.defectPieRef.current;
+    if (defectCanvas && pieCharts.defectBreakdown) {
+      const defectData = pieCharts.defectBreakdown;
+      try {
+        this.defectPieInstance = new Chart(defectCanvas, {
+          type: 'pie',
+          data: {
+            labels: defectData.map(d => d.label),
+            datasets: [{
+              data: defectData.map(d => d.value),
+              backgroundColor: defectData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Defect pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating defect pie chart:', error);
+      }
+    }
+
+    // Line Performance Pie Chart
+    const lineCanvas = this.linePieRef.current;
+    if (lineCanvas && pieCharts.linePerformance) {
+      const lineData = pieCharts.linePerformance;
+      try {
+        this.linePieInstance = new Chart(lineCanvas, {
+          type: 'pie',
+          data: {
+            labels: lineData.map(d => d.label),
+            datasets: [{
+              data: lineData.map(d => d.value),
+              backgroundColor: lineData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Line performance pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating line performance pie chart:', error);
+      }
+    }
+
+    // Shift Distribution Pie Chart
+    const shiftCanvas = this.shiftPieRef.current;
+    if (shiftCanvas && pieCharts.shiftDistribution) {
+      const shiftData = pieCharts.shiftDistribution;
+      try {
+        this.shiftPieInstance = new Chart(shiftCanvas, {
+          type: 'pie',
+          data: {
+            labels: shiftData.map(d => d.label),
+            datasets: [{
+              data: shiftData.map(d => d.value),
+              backgroundColor: shiftData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Shift distribution pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating shift distribution pie chart:', error);
+      }
+    }
+  }
+
+  initializeLineTrendChart = () => {
+    const { dataBundle } = this.state;
+    const lineTrendData = dataBundle?.lineTrendData || [];
+
+    // Destroy existing chart
+    if (this.lineTrendInstance) {
+      this.lineTrendInstance.destroy();
+      this.lineTrendInstance = null;
+    }
+
+    const trendCanvas = this.lineTrendRef.current;
+    if (!trendCanvas) return;
+
+    // Use mock data if no real data available
+    let chartData = lineTrendData;
+    if (!lineTrendData || lineTrendData.length === 0) {
+      console.log('Using mock data for line trend chart');
+      // Generate mock data for last 30 days
+      chartData = [];
+      const today = new Date();
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const baseValue = 1500 + Math.random() * 500; // Base production around 1500-2000
+        chartData.push({
+          date: date.toISOString().split('T')[0],
+          loading: Math.round(baseValue + Math.random() * 200),
+          offloading: Math.round(baseValue * 0.9 + Math.random() * 100),
+          efficiency: Math.round(85 + Math.random() * 15), // 85-100% efficiency
+          wip: Math.round(baseValue * 0.1 + Math.random() * 50)
+        });
+      }
+    }
+
+    if (chartData.length > 0) {
+      // Prepare data for line chart
+      const dates = chartData.map(d => {
+        const date = new Date(d.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+      const loadingData = chartData.map(d => d.loading);
+      const offloadingData = chartData.map(d => d.offloading);
+      const wipData = chartData.map(d => d.wip);
+
+      const lineChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            ticks: { color: '#9aa8c3', maxTicksLimit: 10 }
+          },
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            ticks: { color: '#9aa8c3' }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: { color: '#e5e7eb', font: { size: 12 } }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#e5e7eb',
+            borderColor: 'rgba(20, 184, 166, 0.3)',
+            borderWidth: 1
+          }
+        }
+      };
+
+      console.log('Creating line trend chart with', chartData.length, 'data points');
+
+      try {
+        this.lineTrendInstance = new Chart(trendCanvas, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [
+              {
+                label: 'Loading',
+                data: loadingData,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4,
+                fill: false,
+                pointRadius: 3,
+                pointHoverRadius: 6
+              },
+              {
+                label: 'Offloading',
+                data: offloadingData,
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                tension: 0.4,
+                fill: false,
+                pointRadius: 3,
+                pointHoverRadius: 6
+              },
+              {
+                label: 'WIP',
+                data: wipData,
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                tension: 0.4,
+                fill: false,
+                pointRadius: 3,
+                pointHoverRadius: 6
+              }
+            ]
+          },
+          options: lineChartOptions
+        });
+        console.log('Line trend chart updated successfully');
+      } catch (error) {
+        console.error('Error updating line trend chart:', error);
+      }
     }
   }
 
@@ -1066,20 +1364,41 @@
           const queryString = params.toString();
           const apiUrl = `http://localhost:3002/api/production-data?${queryString}`;
 
+          // Build trend query - same filters but always 30 days
+          const trendParams = new URLSearchParams();
+          trendParams.append('end_date', filters.endDate || new Date().toISOString().slice(0, 10));
+          if (filters.line && filters.line !== 'All') trendParams.append('line', filters.line);
+          if (filters.shift && filters.shift !== 'All') trendParams.append('shift', filters.shift);
+          if (filters.po_id && filters.po_id !== 'All') trendParams.append('po_id', filters.po_id);
+          if (filters.st_id && filters.st_id !== 'All') trendParams.append('st_id', filters.st_id);
+
+          const trendQueryString = trendParams.toString();
+          const trendApiUrl = `http://localhost:3002/api/production-trend?${trendQueryString}`;
+
           console.log('🌐 Fetching from PostgreSQL API URL:', apiUrl);
+          console.log('📈 Fetching 30-day trend data from:', trendApiUrl);
 
-          // Make request to PostgreSQL server
-          console.log('📡 Making request to PostgreSQL server...');
-          const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-          });
+          // Make parallel requests to both endpoints
+          console.log('📡 Making parallel requests to PostgreSQL server...');
+          const [response, trendResponse] = await Promise.all([
+            fetch(apiUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            }),
+            fetch(trendApiUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            })
+          ]);
 
-          console.log('📊 Response status:', response.status);
-          console.log('📊 Response ok:', response.ok);
+          console.log('📊 Production data response status:', response.status);
+          console.log('📊 Trend data response status:', trendResponse.status);
 
           if (!response.ok) {
             const errorText = await response.text();
@@ -1095,10 +1414,24 @@
             throw new Error(apiData.error);
           }
 
+          // Parse trend data
+          let trendData = [];
+          if (trendResponse.ok) {
+            const trendApiData = await trendResponse.json();
+            console.log('📈 Received trend API response:', trendApiData);
+            trendData = trendApiData.trendData || [];
+            console.log(`✅ Loaded ${trendData.length} days of trend data`);
+          } else {
+            console.warn('⚠️ Trend data fetch failed, chart will use mock data');
+          }
+
           // Transform PostgreSQL API response to dashboard format
           const transformedData = this.transformApiResponse(apiData);
+          
+          // Add trend data to the bundle
+          transformedData.lineTrendData = trendData;
 
-          console.log('✅ Successfully transformed data for dashboard');
+          console.log('✅ Successfully transformed data for dashboard with trend data');
           this.setState({ dataBundle: transformedData, loading: false });
           return transformedData;
 
@@ -1277,8 +1610,60 @@
                 </div>
               </div>
 
+              {/* Quick Navigation Bar */}
+              <div className="mt-6">
+                <div className="card p-4 hover-outline">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                        <div className="icon-navigation text-xl text-[var(--primary-color)]"></div>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">Quick Navigation</div>
+                        <div className="text-sm text-[var(--muted-text)]">Jump to key sections instantly</div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('summary-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-chart-bar text-xl text-white"></div>
+                        <span>Go to Summary</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('linewise-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-factory text-xl text-white"></div>
+                        <span>Go to Line Performance</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('analytics-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-trending-up text-xl text-white"></div>
+                        <span>Go to Analytics View</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Summary Cards */}
-              <div className="mt-8">
+              <div id="summary-section" className="mt-8">
                 <div className="flex items-center justify-between gap-4 mb-4">
                   <div>
                     <div className="text-white font-semibold text-lg">Total Summary</div>
@@ -1306,7 +1691,7 @@
               </div>
 
               {/* Line-wise Performance */}
-              <div className="mt-8">
+              <div id="linewise-section" className="mt-8">
                 <div className="flex items-end justify-between gap-4 mb-4">
                   <div>
                     <div className="text-white font-semibold text-lg">Line-wise Performance</div>
@@ -1411,7 +1796,7 @@
               </div>
 
               {/* Analytics Section */}
-              <div className="mt-8">
+              <div id="analytics-section" className="mt-8">
                 <div className="flex items-center justify-between gap-4 mb-4">
                   <div>
                     <div className="text-white font-semibold text-lg">Analytics & Trends</div>
@@ -1512,7 +1897,7 @@
 
                   <div className="card p-6">
                     <div className="h-80 flex items-center justify-center">
-                      <canvas id="lineTrendChart" width="800" height="300"></canvas>
+                      <canvas ref={this.lineTrendRef} width="800" height="300"></canvas>
                     </div>
                   </div>
                 </div>
@@ -1528,7 +1913,7 @@
                       <div className="text-white font-semibold">Production vs Target</div>
                     </div>
                     <div className="h-48 flex items-center justify-center">
-                      <canvas id="productionPieChart" width="200" height="200"></canvas>
+                      <canvas ref={this.productionPieRef} width="200" height="200"></canvas>
                     </div>
                   </div>
 
@@ -1541,7 +1926,7 @@
                       <div className="text-white font-semibold">Defect Breakdown</div>
                     </div>
                     <div className="h-48 flex items-center justify-center">
-                      <canvas id="defectPieChart" width="200" height="200"></canvas>
+                      <canvas ref={this.defectPieRef} width="200" height="200"></canvas>
                     </div>
                   </div>
 
@@ -1554,7 +1939,7 @@
                       <div className="text-white font-semibold">Line Performance</div>
                     </div>
                     <div className="h-48 flex items-center justify-center">
-                      <canvas id="linePieChart" width="200" height="200"></canvas>
+                      <canvas ref={this.linePieRef} width="200" height="200"></canvas>
                     </div>
                   </div>
 
@@ -1567,7 +1952,7 @@
                       <div className="text-white font-semibold">Shift Distribution</div>
                     </div>
                     <div className="h-48 flex items-center justify-center">
-                      <canvas id="shiftPieChart" width="200" height="200"></canvas>
+                      <canvas ref={this.shiftPieRef} width="200" height="200"></canvas>
                     </div>
                   </div>
                 </div>
@@ -1689,287 +2074,6 @@
 
   <script>
     console.log('Full React dashboard loaded');
-  </script>
-
-  <script>
-    console.log('React app loaded, checking for errors...');
-    // Check if React mounted successfully
-    setTimeout(() => {
-      const root = document.getElementById('root');
-      console.log('Root element:', root);
-      console.log('Root children:', root ? root.children.length : 'no root');
-      if (root && root.children.length === 0) {
-        console.error('React did not mount - root element is empty');
-        root.innerHTML = '<div style="color: white; padding: 20px; background: #ff6b6b;">React failed to load. Check console for errors.</div>';
-      } else {
-        console.log('React appears to have mounted successfully');
-        // Initialize charts after React mounts
-        initializeCharts();
-      }
-    }, 1000);
-
-    function initializeCharts() {
-      console.log('Initializing Chart.js charts...');
-      console.log('Chart.js available:', typeof Chart);
-      console.log('window.data available:', typeof window.data);
-
-      // Get data from window.data (injected by Django)
-      const dataBundle = window.data || {};
-      const pieCharts = dataBundle.pieCharts || {};
-      const lineTrendData = dataBundle.lineTrendData || [];
-
-      console.log('Data bundle:', dataBundle);
-      console.log('Pie charts data:', pieCharts);
-      console.log('Line trend data:', lineTrendData);
-
-      // Check if Chart.js is loaded
-      if (typeof Chart === 'undefined') {
-        console.error('Chart.js not loaded!');
-        return;
-      }
-
-      // Chart.js configuration for dark theme
-      const pieChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '50%', // Donut chart
-        plugins: {
-          legend: {
-            labels: {
-              color: '#e5e7eb', // white text
-              font: {
-                size: 12
-              }
-            },
-            position: 'bottom'
-          },
-          tooltip: {
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            titleColor: '#e5e7eb',
-            bodyColor: '#e5e7eb',
-            borderColor: 'rgba(20, 184, 166, 0.3)',
-            borderWidth: 1
-          }
-        }
-      };
-
-      const lineChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            grid: {
-              color: 'rgba(255, 255, 255, 0.1)'
-            },
-            ticks: {
-              color: '#9aa8c3',
-              maxTicksLimit: 10
-            }
-          },
-          y: {
-            grid: {
-              color: 'rgba(255, 255, 255, 0.1)'
-            },
-            ticks: {
-              color: '#9aa8c3'
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            labels: {
-              color: '#e5e7eb',
-              font: {
-                size: 12
-              }
-            }
-          },
-          tooltip: {
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            titleColor: '#e5e7eb',
-            bodyColor: '#e5e7eb',
-            borderColor: 'rgba(20, 184, 166, 0.3)',
-            borderWidth: 1
-          }
-        }
-      };
-
-      // Production vs Target Pie Chart
-      const productionCanvas = document.getElementById('productionPieChart');
-      console.log('Production canvas found:', !!productionCanvas);
-      console.log('Production data:', pieCharts.productionDistribution);
-
-      if (productionCanvas && pieCharts.productionDistribution && pieCharts.productionDistribution.length > 0) {
-        const productionData = pieCharts.productionDistribution;
-        console.log('Creating production pie chart with data:', productionData);
-
-        try {
-          new Chart(productionCanvas, {
-            type: 'pie',
-            data: {
-              labels: productionData.map(d => d.label),
-              datasets: [{
-                data: productionData.map(d => d.value),
-                backgroundColor: productionData.map(d => d.color),
-                borderWidth: 2,
-                borderColor: 'rgba(255, 255, 255, 0.1)'
-              }]
-            },
-            options: pieChartOptions  // Use donut options
-          });
-          console.log('Production pie chart created successfully');
-        } catch (error) {
-          console.error('Error creating production pie chart:', error);
-        }
-      } else {
-        console.warn('Production pie chart not created - missing canvas or data');
-      }
-
-      // Defect Breakdown Pie Chart
-      const defectCanvas = document.getElementById('defectPieChart');
-      if (defectCanvas && pieCharts.defectBreakdown) {
-        const defectData = pieCharts.defectBreakdown;
-        new Chart(defectCanvas, {
-          type: 'pie',
-          data: {
-            labels: defectData.map(d => d.label),
-            datasets: [{
-              data: defectData.map(d => d.value),
-              backgroundColor: defectData.map(d => d.color),
-              borderWidth: 2,
-              borderColor: 'rgba(255, 255, 255, 0.1)'
-            }]
-          },
-          options: pieChartOptions  // Donut options
-        });
-      }
-
-      // Line Performance Pie Chart
-      const lineCanvas = document.getElementById('linePieChart');
-      if (lineCanvas && pieCharts.linePerformance) {
-        const lineData = pieCharts.linePerformance;
-        new Chart(lineCanvas, {
-          type: 'pie',
-          data: {
-            labels: lineData.map(d => d.label),
-            datasets: [{
-              data: lineData.map(d => d.value),
-              backgroundColor: lineData.map(d => d.color),
-              borderWidth: 2,
-              borderColor: 'rgba(255, 255, 255, 0.1)'
-            }]
-          },
-          options: pieChartOptions  // Donut options
-        });
-      }
-
-      // Shift Distribution Pie Chart
-      const shiftCanvas = document.getElementById('shiftPieChart');
-      if (shiftCanvas && pieCharts.shiftDistribution) {
-        const shiftData = pieCharts.shiftDistribution;
-        new Chart(shiftCanvas, {
-          type: 'pie',
-          data: {
-            labels: shiftData.map(d => d.label),
-            datasets: [{
-              data: shiftData.map(d => d.value),
-              backgroundColor: shiftData.map(d => d.color),
-              borderWidth: 2,
-              borderColor: 'rgba(255, 255, 255, 0.1)'
-            }]
-          },
-          options: pieChartOptions  // Donut options
-        });
-      }
-
-      // Line Trend Chart (Last 30 Days)
-      const trendCanvas = document.getElementById('lineTrendChart');
-      console.log('Trend canvas found:', !!trendCanvas);
-      console.log('Line trend data length:', lineTrendData.length);
-
-      // Use mock data if no real data available
-      let chartData = lineTrendData;
-      if (!lineTrendData || lineTrendData.length === 0) {
-        console.log('Using mock data for line trend chart');
-        // Generate mock data for last 30 days
-        chartData = [];
-        const today = new Date();
-        for (let i = 29; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          const baseValue = 1500 + Math.random() * 500; // Base production around 1500-2000
-          chartData.push({
-            date: date.toISOString().split('T')[0],
-            loading: Math.round(baseValue + Math.random() * 200),
-            offloading: Math.round(baseValue * 0.9 + Math.random() * 100),
-            efficiency: Math.round(85 + Math.random() * 15), // 85-100% efficiency
-            wip: Math.round(baseValue * 0.1 + Math.random() * 50)
-          });
-        }
-      }
-
-      if (trendCanvas && chartData.length > 0) {
-        // Prepare data for line chart
-        const dates = chartData.map(d => {
-          const date = new Date(d.date);
-          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        });
-        const loadingData = chartData.map(d => d.loading);
-        const offloadingData = chartData.map(d => d.offloading);
-        const wipData = chartData.map(d => d.wip);
-
-        console.log('Creating line trend chart with', chartData.length, 'data points');
-
-        try {
-          new Chart(trendCanvas, {
-            type: 'line',
-            data: {
-              labels: dates,
-              datasets: [
-                {
-                  label: 'Loading',
-                  data: loadingData,
-                  borderColor: '#3b82f6',
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                  tension: 0.4,
-                  fill: false,
-                  pointRadius: 3,
-                  pointHoverRadius: 6
-                },
-                {
-                  label: 'Offloading',
-                  data: offloadingData,
-                  borderColor: '#22c55e',
-                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                  tension: 0.4,
-                  fill: false,
-                  pointRadius: 3,
-                  pointHoverRadius: 6
-                },
-                {
-                  label: 'WIP',
-                  data: wipData,
-                  borderColor: '#f59e0b',
-                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                  tension: 0.4,
-                  fill: false,
-                  pointRadius: 3,
-                  pointHoverRadius: 6
-                }
-              ]
-            },
-            options: lineChartOptions
-          });
-          console.log('Line trend chart created successfully');
-        } catch (error) {
-          console.error('Error creating line trend chart:', error);
-        }
-      } else {
-        console.warn('Line trend chart not created - missing canvas or data');
-      }
-
-      console.log('Chart.js charts initialized successfully');
-    }
   </script>
 </body>
 </html>
