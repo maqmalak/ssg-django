@@ -1711,57 +1711,6 @@
                 />
               </div>
 
-              {/* Quick Navigation Bar */}
-              <div className="mt-6">
-                <div className="card p-4 hover-outline">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-                        <div className="icon-navigation text-xl text-[var(--primary-color)]"></div>
-                      </div>
-                      <div>
-                        <div className="text-white font-semibold">Quick Navigation</div>
-                        <div className="text-sm text-[var(--muted-text)]">Jump to key sections instantly</div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        className="btn-primary"
-                        onClick={() => {
-                          const element = document.getElementById('summary-section');
-                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                      >
-                        <div className="icon-chart-bar text-xl text-white"></div>
-                        <span>Go to Summary</span>
-                      </button>
-
-                      <button
-                        className="btn-primary"
-                        onClick={() => {
-                          const element = document.getElementById('linewise-section');
-                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                      >
-                        <div className="icon-factory text-xl text-white"></div>
-                        <span>Go to Line Performance</span>
-                      </button>
-
-                      <button
-                        className="btn-primary"
-                        onClick={() => {
-                          const element = document.getElementById('analytics-section');
-                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                      >
-                        <div className="icon-trending-up text-xl text-white"></div>
-                        <span>Go to Analytics View</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               {/* Production Snapshot */}
               <div className="mt-6">
@@ -2008,6 +1957,58 @@
                   rows={dataBundle.lineComparisonRows || []}
                   totals={summary}
                 />
+              </div>
+
+              {/* Quick Navigation Bar */}
+              <div className="mt-6">
+                <div className="card p-4 hover-outline">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                        <div className="icon-navigation text-xl text-[var(--primary-color)]"></div>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">Quick Navigation</div>
+                        <div className="text-sm text-[var(--muted-text)]">Jump to key sections instantly</div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('summary-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-chart-bar text-xl text-white"></div>
+                        <span>Go to Summary</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('linewise-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-factory text-xl text-white"></div>
+                        <span>Go to Line Performance</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('analytics-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-trending-up text-xl text-white"></div>
+                        <span>Go to Analytics View</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Analytics Section */}
