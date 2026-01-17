@@ -1,0 +1,960 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Hanger Line Apparel — Production Dashboard</title>
+  <meta name="description" content="Hanger Line Apparel production dashboard with real-time analytics and PostgreSQL data." />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
+
+  <link href="{% static 'styles.css' %}" rel="stylesheet">
+
+  <style type="text/tailwindcss">
+    @layer theme {
+      :root{
+        --primary-color:#14b8a6;
+        --secondary-color:#07101e;
+        --surface-color:#0a1630;
+        --muted-surface:#0c1b3a;
+        --card-color:#081528;
+        --text-color:#e5e7eb;
+        --muted-text:#9aa8c3;
+        --success-color:#22c55e;
+        --danger-color:#ef4444;
+        --warning-color:#f59e0b;
+        --ring-color: rgba(20,184,166,.32);
+        --shadow-color: rgba(2,6,23,.40);
+        --hover-lift: 10px;
+        --hover-brightness: 1.08;
+      }
+    }
+
+    @layer base {
+      html, body { height: 100%; }
+      body {
+        @apply bg-[#050b18] text-[var(--text-color)] antialiased;
+        font-feature-settings: "ss01" on, "cv01" on;
+      }
+      a { @apply text-[var(--text-color)] no-underline; }
+      ::selection { background: rgba(20,184,166,.28); }
+    }
+
+    @layer components {
+      .app-shell {
+        @apply min-h-screen;
+        background:
+          radial-gradient(1000px 520px at 18% 0%, rgba(20,184,166,.18), transparent 55%),
+          radial-gradient(920px 520px at 86% 12%, rgba(99,102,241,.10), transparent 50%),
+          radial-gradient(920px 520px at 50% 100%, rgba(245,158,11,.07), transparent 55%),
+          linear-gradient(180deg, #040914, #040914);
+      }
+
+      .glass {
+        @apply bg-white/5 border border-white/10 backdrop-blur-xl;
+      }
+
+      .card {
+        @apply glass rounded-2xl shadow-[0_18px_60px_var(--shadow-color)] overflow-hidden;
+      }
+
+      .hover-lift {
+        @apply transition;
+        transition-duration: 250ms;
+        will-change: transform, filter;
+      }
+      .hover-lift:hover{
+        transform: translateY(calc(var(--hover-lift) * -1));
+        filter: brightness(var(--hover-brightness));
+      }
+
+      .hover-outline {
+        @apply transition border border-white/10;
+        transition-duration: 250ms;
+      }
+      .hover-outline:hover{
+        border-color: rgba(255,255,255,.18);
+        box-shadow: 0 0 0 4px var(--ring-color), 0 18px 60px var(--shadow-color);
+      }
+
+      .chip {
+        @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs border border-white/10 bg-white/5;
+      }
+
+      .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition;
+      }
+
+      .btn-primary {
+        @apply btn bg-[var(--primary-color)] text-white hover:brightness-110 active:brightness-95;
+        box-shadow: 0 10px 35px rgba(20,184,166,.32);
+      }
+
+      .btn-ghost {
+        @apply btn bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-white/5;
+      }
+      .btn-ghost:hover{
+        box-shadow: 0 0 0 4px var(--ring-color);
+      }
+
+      .input {
+        @apply w-full rounded-xl px-3 py-2 bg-white/5 border border-white/10 text-white placeholder:text-white/30 outline-none;
+      }
+      .input:focus{
+        box-shadow: 0 0 0 4px var(--ring-color);
+        border-color: rgba(20,184,166,.55);
+      }
+
+      .select {
+        @apply input appearance-none pr-10;
+      }
+
+      .tile {
+        @apply card;
+        background:
+          radial-gradient(500px 220px at 10% 0%, rgba(14,165,233,.18), transparent 55%),
+          linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      }
+
+      .subtle-divider {
+        @apply border-t border-white/10;
+      }
+
+      .badge-positive {
+        @apply inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs;
+        background: rgba(34,197,94,.12);
+        color: rgb(134 239 172);
+        border: 1px solid rgba(34,197,94,.25);
+      }
+
+      .badge-negative {
+        @apply inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs;
+        background: rgba(239,68,68,.12);
+        color: rgb(254 202 202);
+        border: 1px solid rgba(239,68,68,.25);
+      }
+
+      .progress-rail {
+        @apply w-full h-2 rounded-full bg-white/10 overflow-hidden;
+      }
+      .progress-bar {
+        @apply h-full rounded-full;
+        background: linear-gradient(90deg, rgba(14,165,233,1), rgba(34,197,94,1));
+      }
+    }
+
+    @layer utilities {
+      .text-muted { @apply text-[var(--muted-text)]; }
+      .shadow-soft { box-shadow: 0 18px 60px var(--shadow-color); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Full-featured HTML dashboard with real data -->
+  <div class="app-shell">
+    <div class="max-w-7xl mx-auto px-4 py-6">
+      <!-- Header -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <div>
+          <h1 class="text-2xl font-bold text-white mb-1 flex items-center gap-4">
+            <img src="/static/images/logo.jpg" alt="Logo" style="height: 50px; vertical-align: middle; border-radius: 6px;" />
+            Hanger Line Apparel
+          </h1>
+          <p class="text-[var(--muted-text)]">Production Dashboard - Real-time Analytics</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="chip">
+            <div class="icon-bar-chart text-xl text-white/90"></div>
+            <span class="text-white/90">Live Data</span>
+          </span>
+          <span class="chip">
+            <div class="icon-database text-xl text-white/90"></div>
+            <span class="text-white/90">PostgreSQL</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Filters Section -->
+      <div class="card p-5 mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+              <div class="icon-list-filter text-xl text-[var(--primary-color)]"></div>
+            </div>
+            <div>
+              <div class="text-white font-semibold">Production Filters</div>
+              <div class="text-sm text-[var(--muted-text)]">
+                Filter data by date range, production line, shift, PO ID, and ST ID.
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3 flex-1">
+            <div>
+              <label class="text-xs text-[var(--muted-text)]">Start Date</label>
+              <div class="mt-1">
+                <input type="date" id="start-date" class="input" value="2024-01-01" />
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs text-[var(--muted-text)]">End Date</label>
+              <div class="mt-1">
+                <input type="date" id="end-date" class="input" value="2024-12-31" />
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs text-[var(--muted-text)]">Production Line</label>
+              <div class="mt-1 relative">
+                <select id="line-filter" class="select">
+                  <option value="All">All Lines</option>
+                  <option value="line-21">Line-21</option>
+                  <option value="line-22">Line-22</option>
+                  <option value="line-23">Line-23</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs text-[var(--muted-text)]">Shift</label>
+              <div class="mt-1 relative">
+                <select id="shift-filter" class="select">
+                  <option value="All">All Shifts</option>
+                  <option value="Day">Day Shift</option>
+                  <option value="Night">Night Shift</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs text-[var(--muted-text)]">PO ID</label>
+              <div class="mt-1 relative">
+                <select id="po-filter" class="select">
+                  <option value="All">All PO IDs</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs text-[var(--muted-text)]">ST ID</label>
+              <div class="mt-1 relative">
+                <select id="st-filter" class="select">
+                  <option value="All">All ST IDs</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-end">
+            <button id="apply-filters" class="btn-primary">
+              <div class="icon-list-filter text-xl text-white"></div>
+              <span>Apply Filters</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status and Summary -->
+      <div id="status-section" class="card p-6 mb-8">
+        <div class="text-center">
+          <div class="text-blue-400 text-xl font-semibold mb-2">🔄 Loading Dashboard Data...</div>
+          <div class="text-[var(--muted-text)]">
+            Fetching real-time production data from PostgreSQL database.
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics Charts Grid -->
+      <div id="charts-section" class="grid grid-cols-1 lg:grid-cols-12 gap-6" style="display: none;">
+        <!-- Production Snapshot -->
+        <div class="lg:col-span-12">
+          <div class="tile p-6 hover-lift hover-outline">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-2xl bg-[var(--primary-color)] flex items-center justify-center shadow-[0_14px_40px_rgba(14,165,233,.35)]">
+                    <div class="icon-chart-bar text-2xl text-white"></div>
+                  </div>
+                  <div>
+                    <div class="text-white text-xl font-semibold">Production Snapshot</div>
+                    <div class="text-sm text-[var(--muted-text)]">
+                      Real-time overview with key performance indicators and operational metrics.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="chip">
+                  <div class="icon-factory text-xl text-white/90"></div>
+                  <span class="text-white/90" id="active-lines-display">0 Active Lines</span>
+                </span>
+                <span class="chip">
+                  <div class="icon-gauge text-xl text-white/90"></div>
+                  <span class="text-white/90" id="avg-efficiency-display">0% Efficiency</span>
+                </span>
+                <span class="chip">
+                  <div class="icon-clock text-xl text-white/90"></div>
+                  <span class="text-white/90" id="breakdown-display">0 min Breakdown</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="mt-6 subtle-divider"></div>
+
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="card p-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm text-[var(--muted-text)]">Variance</div>
+                    <div class="text-lg font-semibold text-green-400" id="variance-display">+0 / +0.0%</div>
+                    <div class="text-xs text-[var(--muted-text)]">Against total target</div>
+                  </div>
+                  <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <div class="icon-trending-up text-xl text-green-400"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card p-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm text-[var(--muted-text)]">Attendance %</div>
+                    <div class="text-lg font-semibold text-green-400" id="attendance-display">0%</div>
+                    <div class="text-xs text-[var(--muted-text)]">Present vs active employees</div>
+                  </div>
+                  <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <div class="icon-users text-xl text-green-400"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card p-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm text-[var(--muted-text)]">Total WIP</div>
+                    <div class="text-lg font-semibold text-orange-400" id="total-wip-snapshot">0</div>
+                    <div class="text-xs text-[var(--muted-text)]">Work in progress</div>
+                  </div>
+                  <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                    <div class="icon-box text-xl text-orange-400"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total Summary Cards -->
+        <div class="lg:col-span-12">
+          <div class="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <div class="text-white font-semibold text-lg">Total Summary</div>
+              <div class="text-sm text-[var(--muted-text)]">
+                Comprehensive operational metrics and key performance indicators.
+              </div>
+            </div>
+            <div class="text-sm text-[var(--muted-text)]">
+              <span id="summary-cards-count">12</span> metrics displayed
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4" id="summary-cards-grid">
+            <!-- Summary cards will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Line-wise Performance -->
+        <div class="lg:col-span-12">
+          <div class="flex items-end justify-between gap-4 mb-6">
+            <div>
+              <div class="text-white font-semibold text-lg">Line-wise Performance</div>
+              <div class="text-sm text-[var(--muted-text)]">
+                Individual line metrics with efficiency, targets, and variance analysis.
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="chip">
+                <div class="icon-target text-xl text-white/90"></div>
+                <span class="text-white/90" id="target-display">Target: 17,884</span>
+              </span>
+              <span class="chip">
+                <div class="icon-package-check text-xl text-white/90"></div>
+                <span class="text-white/90" id="total-offloading-display">Total: 26,385</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Top Loading Lines -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <div class="card p-6">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                  <div class="icon-boxes text-xl text-blue-400"></div>
+                </div>
+                <div>
+                  <div class="text-white font-semibold">Top Loading Lines</div>
+                  <div class="text-sm text-[var(--muted-text)]">Lines with highest loading volume</div>
+                </div>
+              </div>
+              <div class="space-y-3" id="top-loading-lines">
+                <!-- Loading lines will be populated by JavaScript -->
+              </div>
+            </div>
+
+            <!-- Efficiency Leaders -->
+            <div class="card p-6">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                  <div class="icon-gauge text-xl text-green-400"></div>
+                </div>
+                <div>
+                  <div class="text-white font-semibold">Efficiency Leaders</div>
+                  <div class="text-sm text-[var(--muted-text)]">Top performing lines by efficiency</div>
+                </div>
+              </div>
+              <div class="space-y-3" id="efficiency-leaders">
+                <!-- Efficiency leaders will be populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Line Comparison Table -->
+          <div class="card p-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+              <div>
+                <div class="text-white font-semibold">Line-wise Comparison</div>
+                <div class="text-sm text-[var(--muted-text)]">
+                  Compare loading, offloading, WIP, target, achievement, variance, efficiency, defects, downtime, and workforce attendance by production line.
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="chip">
+                  <div class="icon-target text-xl text-white/90"></div>
+                  <span class="text-white/90" id="table-target-display">Total Target: 17,884</span>
+                </span>
+                <span class="chip">
+                  <div class="icon-award text-xl text-white/90"></div>
+                  <span class="text-white/90" id="table-achievement-display">Achievement: 147.5%</span>
+                </span>
+                <span class="chip">
+                  <div class="icon-users text-xl text-white/90"></div>
+                  <span class="text-white/90" id="table-attendance-display">Attendance: 94.1%</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="mt-4 subtle-divider"></div>
+
+            <div class="mt-4 overflow-x-auto">
+              <table class="min-w-[1200px] w-full border-separate border-spacing-y-2" id="line-comparison-table">
+                <thead>
+                  <tr>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-left">Line</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('loading')">Loading</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('offloading')">Offloading</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('wip')">WIP</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('target')">Target</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('achievementPct')">Achieve %</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('variance')">Variance</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('efficiency')">Efficiency</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('defects')">Defects</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('defectsPct')">Defects %</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('breakdownMin')">Breakdown Time</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('activeEmployees')">Active Employee</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('presentEmployees')">Present Employee</th>
+                    <th class="text-xs font-semibold text-[var(--muted-text)] px-3 py-2 text-right cursor-pointer hover:text-white" onclick="sortTable('attendancePct')">Attendance %</th>
+                  </tr>
+                </thead>
+                <tbody id="line-comparison-tbody">
+                  <!-- Table rows will be populated by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-3 text-xs text-[var(--muted-text)]">
+              Tip: click any column header to sort. Variance, achievement, and attendance are color-coded for fast scanning.
+            </div>
+          </div>
+        </div>
+
+        <!-- Production vs Target Chart -->
+        <div class="lg:col-span-6">
+          <div class="card p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                <div class="icon-target text-xl text-green-400"></div>
+              </div>
+              <div>
+                <div class="text-white font-semibold">Production vs Target</div>
+                <div class="text-sm text-[var(--muted-text)]">Actual production compared to planned targets</div>
+              </div>
+            </div>
+            <div class="h-64 flex items-center justify-center">
+              <canvas id="production-target-chart" width="400" height="300"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Defect Analysis Chart -->
+        <div class="lg:col-span-6">
+          <div class="card p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                <div class="icon-bug text-xl text-red-400"></div>
+              </div>
+              <div>
+                <div class="text-white font-semibold">Defect Breakdown</div>
+                <div class="text-sm text-[var(--muted-text)]">Quality analysis and defect distribution</div>
+              </div>
+            </div>
+            <div class="h-64 flex items-center justify-center">
+              <canvas id="defect-chart" width="400" height="300"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Production Flow Chart -->
+        <div class="lg:col-span-12">
+          <div class="card p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                <div class="icon-bar-chart-3 text-xl text-purple-400"></div>
+              </div>
+              <div>
+                <div class="text-white font-semibold">Production Flow Analysis</div>
+                <div class="text-sm text-[var(--muted-text)]">Loading, offloading, and WIP trends by production line</div>
+              </div>
+            </div>
+            <div class="h-80 flex items-center justify-center">
+              <canvas id="production-flow-chart" width="1200" height="400"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Efficiency & Trends -->
+        <div class="lg:col-span-4 space-y-4">
+          <div class="card p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm text-[var(--muted-text)]">Average Efficiency</div>
+                <div class="text-2xl font-bold text-green-400" id="avg-efficiency">0%</div>
+              </div>
+              <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <div class="icon-gauge text-xl text-green-400"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm text-[var(--muted-text)]">Active Lines</div>
+                <div class="text-2xl font-bold text-blue-400" id="active-lines">0</div>
+              </div>
+              <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <div class="icon-factory text-xl text-blue-400"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm text-[var(--muted-text)]">Total Defects</div>
+                <div class="text-2xl font-bold text-red-400" id="total-defects">0</div>
+              </div>
+              <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <div class="icon-bug text-xl text-red-400"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard JavaScript -->
+  <script>
+    console.log('Dashboard JavaScript loading...');
+
+    // Global variables
+    let currentData = null;
+    let charts = {};
+
+    // Initialize dashboard when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM loaded, initializing dashboard...');
+
+      // Set up event listeners
+      setupEventListeners();
+
+      // Load initial data
+      loadDashboardData();
+    });
+
+    function setupEventListeners() {
+      const applyButton = document.getElementById('apply-filters');
+      if (applyButton) {
+        applyButton.addEventListener('click', handleApplyFilters);
+      }
+
+      // Enter key on any filter input
+      const filterInputs = ['start-date', 'end-date', 'line-filter', 'shift-filter', 'po-filter', 'st-filter'];
+      filterInputs.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+              handleApplyFilters();
+            }
+          });
+        }
+      });
+    }
+
+    async function handleApplyFilters() {
+      console.log('Applying filters...');
+
+      const filters = {
+        startDate: document.getElementById('start-date').value,
+        endDate: document.getElementById('end-date').value,
+        line: document.getElementById('line-filter').value,
+        shift: document.getElementById('shift-filter').value,
+        po_id: document.getElementById('po-filter').value,
+        st_id: document.getElementById('st-filter').value,
+      };
+
+      console.log('Filter values:', filters);
+
+      // Update status
+      const statusSection = document.getElementById('status-section');
+      statusSection.innerHTML = `
+        <div class="text-center">
+          <div class="text-blue-400 text-xl font-semibold mb-2">🔄 Applying Filters...</div>
+          <div class="text-[var(--muted-text)]">
+            Updating dashboard with new filter settings.
+          </div>
+        </div>
+      `;
+
+      try {
+        await loadDashboardData(filters);
+        showSuccessMessage('Filters applied successfully!');
+      } catch (error) {
+        console.error('Filter application error:', error);
+        showErrorMessage('Failed to apply filters: ' + error.message);
+      }
+    }
+
+    async function loadDashboardData(filters = {}) {
+      try {
+        console.log('Loading dashboard data with filters:', filters);
+
+        // Build API URL with filters
+        const params = new URLSearchParams();
+        if (filters.startDate) params.append('start_date', filters.startDate);
+        if (filters.endDate) params.append('end_date', filters.endDate);
+        if (filters.line && filters.line !== 'All') params.append('line', filters.line);
+        if (filters.shift && filters.shift !== 'All') params.append('shift', filters.shift);
+        if (filters.po_id && filters.po_id !== 'All') params.append('po_id', filters.po_id);
+        if (filters.st_id && filters.st_id !== 'All') params.append('st_id', filters.st_id);
+
+        const apiUrl = `http://localhost:3002/api/production-data?${params.toString()}`;
+        console.log('Fetching from API:', apiUrl);
+
+        const response = await fetch(apiUrl);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('Received data:', data);
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Update global data
+        currentData = data;
+
+        // Update UI
+        updateDashboardUI(data);
+
+        // Load dropdown options
+        await loadDropdownOptions(filters.startDate, filters.endDate);
+
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showErrorMessage('Failed to load dashboard data: ' + error.message);
+      }
+    }
+
+    function updateDashboardUI(data) {
+      console.log('Updating dashboard UI with data:', data);
+
+      // Hide loading, show charts
+      document.getElementById('status-section').style.display = 'none';
+      document.getElementById('charts-section').style.display = 'block';
+
+      // Update summary cards
+      if (data.summary) {
+        document.getElementById('total-loading').textContent = (data.summary.totalLoading || 0).toLocaleString();
+        document.getElementById('total-offloading').textContent = (data.summary.totalOffloading || 0).toLocaleString();
+        document.getElementById('total-wip').textContent = (data.summary.totalWip || 0).toLocaleString();
+        document.getElementById('avg-efficiency').textContent = `${(data.summary.efficiency || 0).toFixed(1)}%`;
+        document.getElementById('active-lines').textContent = data.summary.activeLines || 0;
+        document.getElementById('total-defects').textContent = (data.summary.defects || 0).toLocaleString();
+      }
+
+      // Initialize/update charts
+      initializeCharts(data);
+    }
+
+    function initializeCharts(data) {
+      console.log('Initializing charts with data:', data);
+
+      // Clear existing charts
+      Object.values(charts).forEach(chart => {
+        if (chart) chart.destroy();
+      });
+      charts = {};
+
+      // Production vs Target Chart
+      const productionCanvas = document.getElementById('production-target-chart');
+      if (productionCanvas && data.summary) {
+        const target = data.summary.totalTarget || 0;
+        const actual = data.summary.totalOffloading || 0;
+
+        charts.productionTarget = new Chart(productionCanvas, {
+          type: 'pie',
+          data: {
+            labels: ['Target', 'Actual Production'],
+            datasets: [{
+              data: [target, actual],
+              backgroundColor: ['#f59e0b', '#22c55e'],
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#e5e7eb' } },
+              tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#e5e7eb',
+                bodyColor: '#e5e7eb'
+              }
+            }
+          }
+        });
+      }
+
+      // Defect Analysis Chart
+      const defectCanvas = document.getElementById('defect-chart');
+      if (defectCanvas && data.summary) {
+        const totalOffloading = data.summary.totalOffloading || 0;
+        const defects = data.summary.defects || 0;
+        const goodProduction = totalOffloading - defects;
+
+        charts.defect = new Chart(defectCanvas, {
+          type: 'pie',
+          data: {
+            labels: ['Good Production', 'Defects'],
+            datasets: [{
+              data: [goodProduction, defects],
+              backgroundColor: ['#22c55e', '#ef4444'],
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#e5e7eb' } },
+              tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#e5e7eb',
+                bodyColor: '#e5e7eb'
+              }
+            }
+          }
+        });
+      }
+
+      // Production Flow Chart
+      const flowCanvas = document.getElementById('production-flow-chart');
+      if (flowCanvas && data.lineComparisonRows && data.lineComparisonRows.length > 0) {
+        const topLines = data.lineComparisonRows.slice(0, 8);
+        const labels = topLines.map(row => row.line || 'Unknown');
+        const loadingData = topLines.map(row => row.loading || 0);
+        const offloadingData = topLines.map(row => row.offloading || 0);
+        const wipData = topLines.map(row => row.wip || 0);
+
+        charts.productionFlow = new Chart(flowCanvas, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Loading',
+                data: loadingData,
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: '#3b82f6',
+                borderWidth: 1,
+                borderRadius: 4
+              },
+              {
+                label: 'Offloading',
+                data: offloadingData,
+                backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                borderColor: '#22c55e',
+                borderWidth: 1,
+                borderRadius: 4
+              },
+              {
+                label: 'WIP',
+                data: wipData,
+                backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                borderColor: '#f59e0b',
+                borderWidth: 1,
+                borderRadius: 4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                ticks: { color: '#9aa8c3' }
+              },
+              y: {
+                stacked: true,
+                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                ticks: {
+                  color: '#9aa8c3',
+                  callback: function(value) { return value.toLocaleString(); }
+                }
+              }
+            },
+            plugins: {
+              legend: { labels: { color: '#e5e7eb' } },
+              tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#e5e7eb',
+                bodyColor: '#e5e7eb'
+              }
+            }
+          }
+        });
+      }
+    }
+
+    async function loadDropdownOptions(startDate, endDate) {
+      try {
+        console.log('Loading dropdown options for date range:', { startDate, endDate });
+
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+
+        // Load PO IDs
+        const poResponse = await fetch(`http://localhost:3002/api/po-ids?${params.toString()}`);
+        if (poResponse.ok) {
+          const poData = await poResponse.json();
+          updateSelectOptions('po-filter', poData.po_ids || []);
+        }
+
+        // Load ST IDs
+        const stResponse = await fetch(`http://localhost:3002/api/st-ids?${params.toString()}`);
+        if (stResponse.ok) {
+          const stData = await stResponse.json();
+          updateSelectOptions('st-filter', stData.st_ids || []);
+        }
+
+      } catch (error) {
+        console.error('Error loading dropdown options:', error);
+      }
+    }
+
+    function updateSelectOptions(selectId, options) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+
+      // Clear existing options except "All"
+      const allOption = select.querySelector('option[value="All"]');
+      select.innerHTML = '';
+      if (allOption) select.appendChild(allOption);
+
+      // Add new options
+      options.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option;
+        optionElement.textContent = option;
+        select.appendChild(optionElement);
+      });
+
+      console.log(`Updated ${selectId} with ${options.length} options`);
+    }
+
+    function showSuccessMessage(message) {
+      showToast(message, 'success');
+    }
+
+    function showErrorMessage(message) {
+      showToast(message, 'error');
+    }
+
+    function showToast(message, type = 'info') {
+      console.log(`${type.toUpperCase()}: ${message}`);
+
+      // Create toast element
+      const toast = document.createElement('div');
+      toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${
+        type === 'success' ? 'bg-green-500' :
+        type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+      } text-white`;
+
+      toast.innerHTML = `
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="font-semibold">${type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}</div>
+            <div class="text-sm opacity-90">${message}</div>
+          </div>
+          <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white/70 hover:text-white">×</button>
+        </div>
+      `;
+
+      document.body.appendChild(toast);
+
+      // Auto-remove after 4 seconds
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.remove();
+        }
+      }, 4000);
+    }
+
+    console.log('Dashboard JavaScript loaded successfully');
+  </script>
+</body>
+</html>
