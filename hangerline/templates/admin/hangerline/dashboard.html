@@ -327,7 +327,7 @@
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-3 flex-1">
               <div>
                 <label className="text-xs text-[var(--muted-text)]">Start Date</label>
                 <div className="mt-1">
@@ -623,7 +623,7 @@
         });
 
         return (
-          <div className="card p-5">
+          <div className="card p-5 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               <div>
                 <div className="text-white font-semibold">Line-wise Comparison</div>
@@ -1711,6 +1711,58 @@
                 />
               </div>
 
+              {/* Quick Navigation Bar */}
+              <div className="mt-6">
+                <div className="card p-4 hover-outline">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                        <div className="icon-navigation text-xl text-[var(--primary-color)]"></div>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">Quick Navigation</div>
+                        <div className="text-sm text-[var(--muted-text)]">Jump to key sections instantly</div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('summary-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-chart-bar text-xl text-white"></div>
+                        <span>Go to Summary</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('linewise-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-factory text-xl text-white"></div>
+                        <span>Go to Line Performance</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('analytics-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-trending-up text-xl text-white"></div>
+                        <span>Go to Analytics View</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Production Snapshot */}
               <div className="mt-6">
                 <div className="tile p-6 hover-lift hover-outline">
@@ -1876,7 +1928,7 @@
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Top Loading Lines */}
-                  <div className="card p-6">
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
                         <div className="icon-boxes text-xl text-blue-400"></div>
@@ -1912,7 +1964,7 @@
                   </div>
 
                   {/* Efficiency Leaders */}
-                  <div className="card p-6">
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
                         <div className="icon-gauge text-xl text-green-400"></div>
@@ -1983,7 +2035,7 @@
                   {/* Trend Cards */}
                   <div className="lg:col-span-12">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="card p-4">
+                      <div className="card p-4 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-sm text-[var(--muted-text)]">Efficiency Trend</div>
@@ -1996,7 +2048,7 @@
                         <div className="mt-2 text-xs text-[var(--muted-text)]">vs last week</div>
                       </div>
 
-                      <div className="card p-4">
+                      <div className="card p-4 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-sm text-[var(--muted-text)]">WIP Reduction</div>
@@ -2009,7 +2061,7 @@
                         <div className="mt-2 text-xs text-[var(--muted-text)]">inventory optimization</div>
                       </div>
 
-                      <div className="card p-4">
+                      <div className="card p-4 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-sm text-[var(--muted-text)]">Breakdown Time</div>
@@ -2026,7 +2078,7 @@
 
                   {/* Production Flow Chart */}
                   <div className="lg:col-span-12">
-                    <div className="card p-6">
+                    <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
                           <div className="icon-bar-chart-3 text-xl text-purple-400"></div>
@@ -2058,7 +2110,7 @@
                     </div>
                   </div>
 
-                  <div className="card p-6">
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                     <div className="h-80 flex items-center justify-center">
                       <canvas ref={this.lineTrendRef} width="800" height="300"></canvas>
                     </div>
@@ -2068,7 +2120,7 @@
                 {/* Pie Charts Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Production Distribution Pie */}
-                  <div className="card p-6">
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
                         <div className="icon-target text-lg text-green-400"></div>
@@ -2081,7 +2133,7 @@
                   </div>
 
                   {/* Defect Reason Pie */}
-                  <div className="card p-6">
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-red-400/50 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
                         <div className="icon-bug text-lg text-red-400"></div>
@@ -2094,7 +2146,7 @@
                   </div>
 
                   {/* Line Performance Pie */}
-                  <div className="card p-6">
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-blue-400/50 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
                         <div className="icon-gauge text-lg text-blue-400"></div>
@@ -2107,7 +2159,7 @@
                   </div>
 
                   {/* Shift Distribution Pie */}
-                  <div className="card p-6">
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-purple-400/50 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
                         <div className="icon-clock text-lg text-purple-400"></div>
