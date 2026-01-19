@@ -27,31 +27,47 @@ class ProductionFilter(admin.SimpleListFilter):
         # Start with base queryset
         queryset = OperatorDailyPerformance.objects.all()
 
-        # Apply any active date filters
-        if 'odp_date__gte' in request.GET:
-            queryset = queryset.filter(odp_date__gte=request.GET['odp_date__gte'])
-        if 'odp_date__lte' in request.GET:
-            queryset = queryset.filter(odp_date__lte=request.GET['odp_date__lte'])
-        if 'odp_date__year' in request.GET:
-            queryset = queryset.filter(odp_date__year=request.GET['odp_date__year'])
-        if 'odp_date__month' in request.GET:
-            queryset = queryset.filter(odp_date__month=request.GET['odp_date__month'])
-        if 'odp_date__day' in request.GET:
-            queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
+        # Check if any date filters are applied
+        has_date_filter = (
+            'odp_date__gte' in request.GET or
+            'odp_date__lte' in request.GET or
+            'odp_date__year' in request.GET or
+            'odp_date__month' in request.GET or
+            'odp_date__day' in request.GET or
+            request.GET.get('odp_date_range')
+        )
 
-        # Apply custom date range filter
-        if request.GET.get('odp_date_range'):
-            from datetime import date, timedelta
+        # If no date filters are applied, default to today
+        if not has_date_filter:
+            from datetime import date
             today = date.today()
-            yesterday = today - timedelta(days=1)
+            queryset = queryset.filter(odp_date=today)
+        else:
+            # Apply any active date filters
+            if 'odp_date__gte' in request.GET:
+                queryset = queryset.filter(odp_date__gte=request.GET['odp_date__gte'])
+            if 'odp_date__lte' in request.GET:
+                queryset = queryset.filter(odp_date__lte=request.GET['odp_date__lte'])
+            if 'odp_date__year' in request.GET:
+                queryset = queryset.filter(odp_date__year=request.GET['odp_date__year'])
+            if 'odp_date__month' in request.GET:
+                queryset = queryset.filter(odp_date__month=request.GET['odp_date__month'])
+            if 'odp_date__day' in request.GET:
+                queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
 
-            odp_date_range = request.GET['odp_date_range']
-            if odp_date_range == 'today':
-                queryset = queryset.filter(odp_date=today)
-            elif odp_date_range == 'yesterday':
-                queryset = queryset.filter(odp_date=yesterday)
-            elif odp_date_range == 'today_yesterday':
-                queryset = queryset.filter(odp_date__in=[yesterday, today])
+            # Apply custom date range filter
+            if request.GET.get('odp_date_range'):
+                from datetime import date, timedelta
+                today = date.today()
+                yesterday = today - timedelta(days=1)
+
+                odp_date_range = request.GET['odp_date_range']
+                if odp_date_range == 'today':
+                    queryset = queryset.filter(odp_date=today)
+                elif odp_date_range == 'yesterday':
+                    queryset = queryset.filter(odp_date=yesterday)
+                elif odp_date_range == 'today_yesterday':
+                    queryset = queryset.filter(odp_date__in=[yesterday, today])
 
         # Calculate sums for each production category
         categories = []
@@ -123,17 +139,32 @@ class QcscDescriptionFilter(admin.SimpleListFilter):
         # Start with base queryset
         queryset = QualityControlRepair.objects.all()
 
-        # Apply any active date filters
-        if 'qcr_date__gte' in request.GET:
-            queryset = queryset.filter(qcr_date__gte=request.GET['qcr_date__gte'])
-        if 'qcr_date__lte' in request.GET:
-            queryset = queryset.filter(qcr_date__lte=request.GET['qcr_date__lte'])
-        if 'qcr_date__year' in request.GET:
-            queryset = queryset.filter(qcr_date__year=request.GET['qcr_date__year'])
-        if 'qcr_date__month' in request.GET:
-            queryset = queryset.filter(qcr_date__month=request.GET['qcr_date__month'])
-        if 'qcr_date__day' in request.GET:
-            queryset = queryset.filter(qcr_date__day=request.GET['qcr_date__day'])
+        # Check if any date filters are applied
+        has_date_filter = (
+            'qcr_date__gte' in request.GET or
+            'qcr_date__lte' in request.GET or
+            'qcr_date__year' in request.GET or
+            'qcr_date__month' in request.GET or
+            'qcr_date__day' in request.GET
+        )
+
+        # If no date filters are applied, default to today
+        if not has_date_filter:
+            from datetime import date
+            today = date.today()
+            queryset = queryset.filter(qcr_date=today)
+        else:
+            # Apply any active date filters
+            if 'qcr_date__gte' in request.GET:
+                queryset = queryset.filter(qcr_date__gte=request.GET['qcr_date__gte'])
+            if 'qcr_date__lte' in request.GET:
+                queryset = queryset.filter(qcr_date__lte=request.GET['qcr_date__lte'])
+            if 'qcr_date__year' in request.GET:
+                queryset = queryset.filter(qcr_date__year=request.GET['qcr_date__year'])
+            if 'qcr_date__month' in request.GET:
+                queryset = queryset.filter(qcr_date__month=request.GET['qcr_date__month'])
+            if 'qcr_date__day' in request.GET:
+                queryset = queryset.filter(qcr_date__day=request.GET['qcr_date__day'])
 
         # Get distinct qcsc_description values with counts, sorted by count descending
         descriptions = (
@@ -165,31 +196,47 @@ class SourceConnectionFilter(admin.SimpleListFilter):
         # Start with base queryset
         queryset = OperatorDailyPerformance.objects.all()
 
-        # Apply any active date filters
-        if 'odp_date__gte' in request.GET:
-            queryset = queryset.filter(odp_date__gte=request.GET['odp_date__gte'])
-        if 'odp_date__lte' in request.GET:
-            queryset = queryset.filter(odp_date__lte=request.GET['odp_date__lte'])
-        if 'odp_date__year' in request.GET:
-            queryset = queryset.filter(odp_date__year=request.GET['odp_date__year'])
-        if 'odp_date__month' in request.GET:
-            queryset = queryset.filter(odp_date__month=request.GET['odp_date__month'])
-        if 'odp_date__day' in request.GET:
-            queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
+        # Check if any date filters are applied
+        has_date_filter = (
+            'odp_date__gte' in request.GET or
+            'odp_date__lte' in request.GET or
+            'odp_date__year' in request.GET or
+            'odp_date__month' in request.GET or
+            'odp_date__day' in request.GET or
+            request.GET.get('odp_date_range')
+        )
 
-        # Apply custom date range filter
-        if request.GET.get('odp_date_range'):
-            from datetime import date, timedelta
+        # If no date filters are applied, default to today
+        if not has_date_filter:
+            from datetime import date
             today = date.today()
-            yesterday = today - timedelta(days=1)
+            queryset = queryset.filter(odp_date=today)
+        else:
+            # Apply any active date filters
+            if 'odp_date__gte' in request.GET:
+                queryset = queryset.filter(odp_date__gte=request.GET['odp_date__gte'])
+            if 'odp_date__lte' in request.GET:
+                queryset = queryset.filter(odp_date__lte=request.GET['odp_date__lte'])
+            if 'odp_date__year' in request.GET:
+                queryset = queryset.filter(odp_date__year=request.GET['odp_date__year'])
+            if 'odp_date__month' in request.GET:
+                queryset = queryset.filter(odp_date__month=request.GET['odp_date__month'])
+            if 'odp_date__day' in request.GET:
+                queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
 
-            odp_date_range = request.GET['odp_date_range']
-            if odp_date_range == 'today':
-                queryset = queryset.filter(odp_date=today)
-            elif odp_date_range == 'yesterday':
-                queryset = queryset.filter(odp_date=yesterday)
-            elif odp_date_range == 'today_yesterday':
-                queryset = queryset.filter(odp_date__in=[yesterday, today])
+            # Apply custom date range filter
+            if request.GET.get('odp_date_range'):
+                from datetime import date, timedelta
+                today = date.today()
+                yesterday = today - timedelta(days=1)
+
+                odp_date_range = request.GET['odp_date_range']
+                if odp_date_range == 'today':
+                    queryset = queryset.filter(odp_date=today)
+                elif odp_date_range == 'yesterday':
+                    queryset = queryset.filter(odp_date=yesterday)
+                elif odp_date_range == 'today_yesterday':
+                    queryset = queryset.filter(odp_date__in=[yesterday, today])
 
         # Get distinct source_connection values with aggregated loading/unloading sums
         connections = (
@@ -224,31 +271,47 @@ class ShiftFilter(admin.SimpleListFilter):
         # Start with base queryset
         queryset = OperatorDailyPerformance.objects.all()
 
-        # Apply any active date filters
-        if 'odp_date__gte' in request.GET:
-            queryset = queryset.filter(odp_date__gte=request.GET['odp_date__gte'])
-        if 'odp_date__lte' in request.GET:
-            queryset = queryset.filter(odp_date__lte=request.GET['odp_date__lte'])
-        if 'odp_date__year' in request.GET:
-            queryset = queryset.filter(odp_date__year=request.GET['odp_date__year'])
-        if 'odp_date__month' in request.GET:
-            queryset = queryset.filter(odp_date__month=request.GET['odp_date__month'])
-        if 'odp_date__day' in request.GET:
-            queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
+        # Check if any date filters are applied
+        has_date_filter = (
+            'odp_date__gte' in request.GET or
+            'odp_date__lte' in request.GET or
+            'odp_date__year' in request.GET or
+            'odp_date__month' in request.GET or
+            'odp_date__day' in request.GET or
+            request.GET.get('odp_date_range')
+        )
 
-        # Apply custom date range filter
-        if request.GET.get('odp_date_range'):
-            from datetime import date, timedelta
+        # If no date filters are applied, default to today
+        if not has_date_filter:
+            from datetime import date
             today = date.today()
-            yesterday = today - timedelta(days=1)
+            queryset = queryset.filter(odp_date=today)
+        else:
+            # Apply any active date filters
+            if 'odp_date__gte' in request.GET:
+                queryset = queryset.filter(odp_date__gte=request.GET['odp_date__gte'])
+            if 'odp_date__lte' in request.GET:
+                queryset = queryset.filter(odp_date__lte=request.GET['odp_date__lte'])
+            if 'odp_date__year' in request.GET:
+                queryset = queryset.filter(odp_date__year=request.GET['odp_date__year'])
+            if 'odp_date__month' in request.GET:
+                queryset = queryset.filter(odp_date__month=request.GET['odp_date__month'])
+            if 'odp_date__day' in request.GET:
+                queryset = queryset.filter(odp_date__day=request.GET['odp_date__day'])
 
-            odp_date_range = request.GET['odp_date_range']
-            if odp_date_range == 'today':
-                queryset = queryset.filter(odp_date=today)
-            elif odp_date_range == 'yesterday':
-                queryset = queryset.filter(odp_date=yesterday)
-            elif odp_date_range == 'today_yesterday':
-                queryset = queryset.filter(odp_date__in=[yesterday, today])
+            # Apply custom date range filter
+            if request.GET.get('odp_date_range'):
+                from datetime import date, timedelta
+                today = date.today()
+                yesterday = today - timedelta(days=1)
+
+                odp_date_range = request.GET['odp_date_range']
+                if odp_date_range == 'today':
+                    queryset = queryset.filter(odp_date=today)
+                elif odp_date_range == 'yesterday':
+                    queryset = queryset.filter(odp_date=yesterday)
+                elif odp_date_range == 'today_yesterday':
+                    queryset = queryset.filter(odp_date__in=[yesterday, today])
 
         # Get distinct shift values with aggregated loading/unloading sums
         shifts = (
@@ -716,6 +779,26 @@ class LoadinginformationAdmin(admin.ModelAdmin):
     date_hierarchy = 'dated'
     ordering = ['-dated']
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        now = datetime.now()
+
+        # Current month and year
+        current_month = now.month
+        current_year = now.year
+
+        # Last month and year (handle January -> December of previous year)
+        if current_month == 1:
+            last_month = 12
+            last_year = current_year - 1
+        else:
+            last_month = current_month - 1
+            last_year = current_year
+
+        return qs.filter(
+            Q(dated__month=current_month) 
+        )
+
 
 @admin.register(Operationinformation)
 class OperationinformationAdmin(admin.ModelAdmin):
@@ -811,6 +894,30 @@ class ClientPurchaseOrderAdmin(admin.ModelAdmin):
     date_hierarchy = 'clientpodate'
     ordering = ['-clientpodate']
     change_list_template = 'admin/hangerline/clientpurchaseorder/change_list.html'
+
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        now = datetime.now()
+
+        # Current month and year
+        current_month = now.month
+        current_year = now.year
+
+        # Last month and year (handle January -> December of previous year)
+        if current_month == 1:
+            last_month = 12
+            last_year = current_year - 1
+        else:
+            last_month = current_month - 1
+            last_year = current_year
+
+        return qs.filter(
+            Q(clientpodate__year=current_year) 
+        )
+
+
+
 
     def changelist_view(self, request, extra_context=None):
         """Override changelist view to add PO summary dashboard link"""
