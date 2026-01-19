@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Hanger Line Apparel — Production Dashboard </title>
+  <meta name="description" content="Hanger Line Apparel production dashboard with elegant filters, summary widgets, line-wise performance, and visual analytics." />
+  <meta name="keywords" content="apparel, production dashboard, hanger line, loading, offloading, WIP, efficiency, breakdown, analytics" />
+  <meta property="og:title" content="Hanger Line Apparel — Production Dashboard" />
+  <meta property="og:description" content="Elegant production dashboard with filters, summary widgets, line-wise performance cards, and analytics charts." />
+  <meta name="twitter:title" content="Hanger Line Apparel — Production Dashboard" />
+  <meta name="twitter:description" content="Elegant production dashboard with filters, summary widgets, line-wise performance cards, and analytics charts." />
+
+  <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
+  <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+  <script>
+    const ChartJS = window.Chart;
+  </script>
+
+  <link href="styles.css" rel="stylesheet">
+
+  <style type="text/tailwindcss">
+    @layer theme {
+      :root{
+        /* Single primary accent (teal) */
+        --primary-color:#14b8a6; /* teal-500 */
+
+        /* Dark enterprise base */
+        --secondary-color:#07101e; /* deep ink */
+        --surface-color:#0a1630; /* navy-slate */
+        --muted-surface:#0c1b3a; /* custom */
+        --card-color:#081528;
+
+        /* Text */
+        --text-color:#e5e7eb; /* gray-200 */
+        --muted-text:#9aa8c3; /* blue-slate */
+
+        /* Status */
+        --success-color:#22c55e; /* green-500 */
+        --danger-color:#ef4444; /* red-500 */
+        --warning-color:#f59e0b; /* amber-500 */
+
+        /* Effects */
+        --ring-color: rgba(20,184,166,.32);
+        --shadow-color: rgba(2,6,23,.40);
+        --hover-lift: 10px;
+        --hover-brightness: 1.08;
+      }
+    }
+
+    @layer base {
+      html, body { height: 100%; }
+      body {
+        @apply bg-[#050b18] text-[var(--text-color)] antialiased;
+        font-feature-settings: "ss01" on, "cv01" on;
+      }
+      a { @apply text-[var(--text-color)] no-underline; }
+      ::selection { background: rgba(20,184,166,.28); }
+    }
+
+    @layer components {
+      .app-shell {
+        @apply min-h-screen;
+        background:
+          radial-gradient(1000px 520px at 18% 0%, rgba(20,184,166,.18), transparent 55%),
+          radial-gradient(920px 520px at 86% 12%, rgba(99,102,241,.10), transparent 50%),
+          radial-gradient(920px 520px at 50% 100%, rgba(245,158,11,.07), transparent 55%),
+          linear-gradient(180deg, #040914, #040914);
+      }
+
+      .glass {
+        @apply bg-white/5 border border-white/10 backdrop-blur-xl;
+      }
+
+      .card {
+        @apply glass rounded-2xl shadow-[0_18px_60px_var(--shadow-color)] overflow-hidden;
+      }
+
+      /* Hover patterns (use on interactive containers) */
+      .hover-lift {
+        @apply transition;
+        transition-duration: 250ms;
+        will-change: transform, filter;
+      }
+      .hover-lift:hover{
+        transform: translateY(calc(var(--hover-lift) * -1));
+        filter: brightness(var(--hover-brightness));
+      }
+
+      .hover-outline {
+        @apply transition border border-white/10;
+        transition-duration: 250ms;
+      }
+      .hover-outline:hover{
+        border-color: rgba(255,255,255,.18);
+        box-shadow: 0 0 0 4px var(--ring-color), 0 18px 60px var(--shadow-color);
+      }
+
+      .chip {
+        @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs border border-white/10 bg-white/5;
+      }
+
+      .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition;
+      }
+
+      .btn-primary {
+        @apply btn bg-[var(--primary-color)] text-white hover:brightness-110 active:brightness-95;
+        box-shadow: 0 10px 35px rgba(20,184,166,.32);
+      }
+
+      .btn-ghost {
+        @apply btn bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-white/5;
+      }
+      .btn-ghost:hover{
+        box-shadow: 0 0 0 4px var(--ring-color);
+      }
+
+      .input {
+        @apply w-full rounded-xl px-3 py-2 bg-white/5 border border-white/10 text-white placeholder:text-white/30 outline-none;
+      }
+      .input:focus{
+        box-shadow: 0 0 0 4px var(--ring-color);
+        border-color: rgba(20,184,166,.55);
+      }
+
+      .select {
+        @apply input appearance-none pr-10;
+      }
+
+      .tile {
+        @apply card;
+        background:
+          radial-gradient(500px 220px at 10% 0%, rgba(14,165,233,.18), transparent 55%),
+          linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      }
+
+      .subtle-divider {
+        @apply border-t border-white/10;
+      }
+
+      .badge-positive {
+        @apply inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs;
+        background: rgba(34,197,94,.12);
+        color: rgb(134 239 172);
+        border: 1px solid rgba(34,197,94,.25);
+      }
+
+      .badge-negative {
+        @apply

@@ -1,0 +1,19 @@
+services:
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8001
+    volumes:
+      - .:/app
+    ports:
+      - "8001:8001"
+    networks:
+      - airflow_network
+    environment:
+      - DB_NAME=ssg
+      - DB_USER=postgres
+      - DB_PASSWORD=P@kistan12
+      - DB_HOST=172.16.7.6
+      - DB_PORT=5432
+networks:
+  airflow_network:
+    driver: bridge

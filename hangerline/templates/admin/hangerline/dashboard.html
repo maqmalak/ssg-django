@@ -1,0 +1,2336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Hanger Line Apparel — Production Dashboard</title>
+  <meta name="description" content="Hanger Line Apparel production dashboard with elegant filters, summary widgets, line-wise performance, and visual analytics." />
+  <meta name="keywords" content="apparel, production dashboard, hanger line, loading, offloading, WIP, efficiency, breakdown, analytics" />
+  <meta property="og:title" content="Hanger Line Apparel — Production Dashboard" />
+  <meta property="og:description" content="Elegant production dashboard with filters, summary widgets, line-wise performance cards, and analytics charts." />
+  <meta name="twitter:title" content="Hanger Line Apparel — Production Dashboard" />
+  <meta name="twitter:description" content="Elegant production dashboard with filters, summary widgets, line-wise performance cards, and analytics charts." />
+
+  <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
+  <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+  <script>
+    const ChartJS = window.Chart;
+  </script>
+
+  <link href="styles.css" rel="stylesheet">
+
+  <style type="text/tailwindcss">
+    @layer theme {
+      :root{
+        /* Single primary accent (teal) */
+        --primary-color:#14b8a6; /* teal-500 */
+
+        /* Dark enterprise base */
+        --secondary-color:#07101e; /* deep ink */
+        --surface-color:#0a1630; /* navy-slate */
+        --muted-surface:#0c1b3a; /* custom */
+        --card-color:#081528;
+
+        /* Text */
+        --text-color:#e5e7eb; /* gray-200 */
+        --muted-text:#9aa8c3; /* blue-slate */
+
+        /* Status */
+        --success-color:#22c55e; /* green-500 */
+        --danger-color:#ef4444; /* red-500 */
+        --warning-color:#f59e0b; /* amber-500 */
+
+        /* Effects */
+        --ring-color: rgba(20,184,166,.32);
+        --shadow-color: rgba(2,6,23,.40);
+        --hover-lift: 10px;
+        --hover-brightness: 1.08;
+      }
+    }
+
+    @layer base {
+      html, body { height: 100%; }
+      body {
+        @apply bg-[#050b18] text-[var(--text-color)] antialiased;
+        font-feature-settings: "ss01" on, "cv01" on;
+      }
+      a { @apply text-[var(--text-color)] no-underline; }
+      ::selection { background: rgba(20,184,166,.28); }
+    }
+
+    @layer components {
+      .app-shell {
+        @apply min-h-screen;
+        background:
+          radial-gradient(1000px 520px at 18% 0%, rgba(20,184,166,.18), transparent 55%),
+          radial-gradient(920px 520px at 86% 12%, rgba(99,102,241,.10), transparent 50%),
+          radial-gradient(920px 520px at 50% 100%, rgba(245,158,11,.07), transparent 55%),
+          linear-gradient(180deg, #040914, #040914);
+      }
+
+      .glass {
+        @apply bg-white/5 border border-white/10 backdrop-blur-xl;
+      }
+
+      .card {
+        @apply glass rounded-2xl shadow-[0_18px_60px_var(--shadow-color)] overflow-hidden;
+      }
+
+      /* Hover patterns (use on interactive containers) */
+      .hover-lift {
+        @apply transition;
+        transition-duration: 250ms;
+        will-change: transform, filter;
+      }
+      .hover-lift:hover{
+        transform: translateY(calc(var(--hover-lift) * -1));
+        filter: brightness(var(--hover-brightness));
+      }
+
+      .hover-outline {
+        @apply transition border border-white/10;
+        transition-duration: 250ms;
+      }
+      .hover-outline:hover{
+        border-color: rgba(255,255,255,.18);
+        box-shadow: 0 0 0 4px var(--ring-color), 0 18px 60px var(--shadow-color);
+      }
+
+      .chip {
+        @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs border border-white/10 bg-white/5;
+      }
+
+      .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition;
+      }
+
+      .btn-primary {
+        @apply btn bg-[var(--primary-color)] text-white hover:brightness-110 active:brightness-95;
+        box-shadow: 0 10px 35px rgba(20,184,166,.32);
+      }
+
+      .btn-ghost {
+        @apply btn bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-white/5;
+      }
+      .btn-ghost:hover{
+        box-shadow: 0 0 0 4px var(--ring-color);
+      }
+
+      .input {
+        @apply w-full rounded-xl px-3 py-2 bg-white/5 border border-white/10 text-white placeholder:text-white/30 outline-none;
+      }
+      .input:focus{
+        box-shadow: 0 0 0 4px var(--ring-color);
+        border-color: rgba(20,184,166,.55);
+      }
+
+      .select {
+        @apply input appearance-none pr-10;
+      }
+
+      .tile {
+        @apply card;
+        background:
+          radial-gradient(500px 220px at 10% 0%, rgba(14,165,233,.18), transparent 55%),
+          linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      }
+
+      .subtle-divider {
+        @apply border-t border-white/10;
+      }
+
+      .badge-positive {
+        @apply inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs;
+        background: rgba(34,197,94,.12);
+        color: rgb(134 239 172);
+        border: 1px solid rgba(34,197,94,.25);
+      }
+
+      .badge-negative {
+        @apply inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs;
+        background: rgba(239,68,68,.12);
+        color: rgb(254 202 202);
+        border: 1px solid rgba(239,68,68,.25);
+      }
+
+      .progress-rail {
+        @apply w-full h-2 rounded-full bg-white/10 overflow-hidden;
+      }
+      .progress-bar {
+        @apply h-full rounded-full;
+        background: linear-gradient(90deg, rgba(14,165,233,1), rgba(34,197,94,1));
+      }
+    }
+
+    @layer utilities {
+      .text-muted { @apply text-[var(--muted-text)]; }
+      .shadow-soft { box-shadow: 0 18px 60px var(--shadow-color); }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <!-- Load only essential utility scripts -->
+  <script type="text/babel" src="{% static 'js/utils/format.js' %}?v={% now 'U' %}"></script>
+  <script type="text/babel" src="{% static 'js/utils/mockProductionData.js' %}?v={% now 'U' %}"></script>
+
+  <!-- Complete inline dashboard with working components -->
+  <script type="text/babel">
+    console.log('Loading complete inline dashboard...');
+
+    // Inline component definitions
+    class SummaryCard extends React.Component {
+      render() {
+        const { title, value, iconClass, tone, footnote } = this.props;
+        const toneClass = tone === 'positive' ? 'text-green-400' :
+                         tone === 'negative' ? 'text-red-400' : 'text-blue-400';
+
+        return (
+          <div className="card p-4 hover-lift">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="card-title text-sm">{title}</div>
+                <div className={`card-value text-xl font-semibold ${toneClass}`}>{value}</div>
+                {footnote && <div className="text-xs text-[var(--muted-text)] mt-1">{footnote}</div>}
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                <div className={`${iconClass} text-lg text-[var(--primary-color)]`}></div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    class HeaderBar extends React.Component {
+      render() {
+        const { title, subtitle } = this.props;
+        return (
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-4">
+                <img src="/static/images/logo.jpg" alt="Lucrum Logo" style={{height: '50px', verticalAlign: 'middle', borderRadius: '6px'}} />
+                {title}
+              </h1>
+              <p className="text-[var(--muted-text)]">{subtitle}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="chip">
+                <div className="icon-calendar text-xl text-white/90"></div>
+                <span className="text-white/90">Live Data</span>
+              </span>
+            </div>
+          </div>
+        );
+      }
+    }
+
+
+
+    class AlertCenter extends React.Component {
+      render() {
+        const { items, onDismiss } = this.props;
+        if (!items || items.length === 0) return null;
+
+        return (
+          <div className="fixed bottom-4 right-4 z-50 space-y-2">
+            {items.map((item) => (
+              <div key={item.id} className={`p-4 rounded-lg shadow-lg max-w-sm ${
+                item.type === 'success' ? 'bg-green-500' :
+                item.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+              } text-white`}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-semibold">{item.title}</div>
+                    <div className="text-sm opacity-90">{item.message}</div>
+                  </div>
+                  <button
+                    onClick={() => onDismiss(item.id)}
+                    className="ml-4 text-white/70 hover:text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+    }
+
+    // FilterBar Component
+    function FilterBar({ filters, setFilters, onApply }) {
+      const onFetchDropdowns = async () => {
+        try {
+          console.log('🔄 Fetching dropdown options with current date range...');
+
+          // Get current date values from input fields
+          const startDateInput = document.querySelector('input[type="date"]');
+          const endDateInput = document.querySelectorAll('input[type="date"]')[1];
+
+          const startDate = startDateInput ? startDateInput.value : filters.startDate;
+          const endDate = endDateInput ? endDateInput.value : filters.endDate;
+
+          console.log('📅 Using date range:', { startDate, endDate });
+
+          // Fetch dropdown options with current date range
+          await window.fetchDropdownOptions(startDate, endDate);
+
+          console.log('✅ Dropdown options updated successfully');
+        } catch (error) {
+          console.error('❌ Failed to fetch dropdown options:', error);
+        }
+      };
+      const lineOptions = ['All', 'line-21', 'line-22', 'line-23', 'line-24', 'line-25', 'line-26', 'line-27', 'line-28', 'line-29', 'line-30', 'line-31', 'line-32'];
+      const shiftOptions = ['All', 'Day', 'Night'];
+
+      const setField = (key, value) => {
+        try {
+          const newFilters = { ...filters, [key]: value };
+          setFilters(newFilters);
+        } catch (error) {
+          console.error('FilterBar setField error:', error);
+        }
+      };
+
+      const formatDateDisplay = (dateValue) => {
+        try {
+          if (window.Formatters && window.Formatters.formatDateDDMMYYYY) {
+            return window.Formatters.formatDateDDMMYYYY(dateValue);
+          }
+          return dateValue || '--/--/----';
+        } catch (error) {
+          console.error('Date formatting error:', error);
+          return dateValue || '--/--/----';
+        }
+      };
+
+      return (
+        <div className="card p-5 hover-outline">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                <div className="icon-list-filter text-xl text-[var(--primary-color)]"></div>
+              </div>
+              <div>
+                <div className="text-white font-semibold">Top Filters</div>
+                <div className="text-sm text-[var(--muted-text)]">
+                  Default is today, format <span className="text-white/80">dd/mm/yyyy</span>.
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-3 flex-1">
+              <div>
+                <label className="text-xs text-[var(--muted-text)]">Start Date</label>
+                <div className="mt-1">
+                  <input
+                    type="date"
+                    className="input"
+                    value={filters.startDate || ''}
+                    onChange={(e) => setField('startDate', e.target.value)}
+                  />
+                  <div className="mt-1 text-xs text-[var(--muted-text)]">
+                    {formatDateDisplay(filters.startDate)}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-[var(--muted-text)]">End Date</label>
+                <div className="mt-1">
+                  <input
+                    type="date"
+                    className="input"
+                    value={filters.endDate || ''}
+                    onChange={(e) => setField('endDate', e.target.value)}
+                  />
+                  <div className="mt-1 text-xs text-[var(--muted-text)]">
+                    {formatDateDisplay(filters.endDate)}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-[var(--muted-text)]">Production Line</label>
+                <div className="mt-1 relative">
+                  <select
+                    className="select"
+                    value={filters.line || 'All'}
+                    onChange={(e) => setField('line', e.target.value)}
+                  >
+                    {lineOptions.map((l) => (
+                      <option value={l} key={l}>{l}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-[50%] -translate-y-1/2">
+                    <div className="icon-chevron-down text-xl text-white/70"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-[var(--muted-text)]">Shift</label>
+                <div className="mt-1 relative">
+                  <select
+                    className="select"
+                    value={filters.shift || 'All'}
+                    onChange={(e) => setField('shift', e.target.value)}
+                  >
+                    {shiftOptions.map((s) => (
+                      <option value={s} key={s}>{s}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-[50%] -translate-y-1/2">
+                    <div className="icon-chevron-down text-xl text-white/70"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-[var(--muted-text)]">PO ID</label>
+                <div className="mt-1 relative">
+                  <select
+                    id="po-id-select"
+                    className="select"
+                    value={filters.po_id || 'All'}
+                    onChange={(e) => setField('po_id', e.target.value)}
+                  >
+                    <option value="All">All</option>
+                    {/* PO ID options will be populated by JavaScript */}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-[50%] -translate-y-1/2">
+                    <div className="icon-chevron-down text-xl text-white/70"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-[var(--muted-text)]">ST ID</label>
+                <div className="mt-1 relative">
+                  <select
+                    id="st-id-select"
+                    className="select"
+                    value={filters.st_id || 'All'}
+                    onChange={(e) => setField('st_id', e.target.value)}
+                  >
+                    <option value="All">All</option>
+                    {/* ST ID options will be populated by JavaScript */}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-[50%] -translate-y-1/2">
+                    <div className="icon-chevron-down text-xl text-white/70"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-end gap-3">
+                <button
+                  className="btn-ghost flex-1"
+                  onClick={onFetchDropdowns}
+                >
+                  <div className="icon-database text-xl text-white"></div>
+                  <span>Fetch PO & ST</span>
+                </button>
+                <button
+                  className="btn-primary flex-1"
+                  onClick={onApply}
+                >
+                  <div className="icon-list-filter text-xl text-white"></div>
+                  <span>Apply Filters</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 subtle-divider"></div>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="card px-4 py-3 bg-white/3 border border-white/10 rounded-2xl shadow-none">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[rgba(14,165,233,.12)] border border-[rgba(14,165,233,.25)] flex items-center justify-center">
+                  <div className="icon-calendar-days text-xl text-[rgba(147,197,253,1)]"></div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">Today is default</div>
+                  <div className="text-sm text-[var(--muted-text)]">Pick dates to review historical shifts.</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card px-4 py-3 bg-white/3 border border-white/10 rounded-2xl shadow-none">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[rgba(34,197,94,.12)] border border-[rgba(34,197,94,.25)] flex items-center justify-center">
+                  <div className="icon-sparkles text-xl text-[rgb(134_239_172)]"></div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">Variance colors</div>
+                  <div className="text-sm text-[var(--muted-text)]">Green is positive, red is negative.</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card px-4 py-3 bg-white/3 border border-white/10 rounded-2xl shadow-none">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[rgba(245,158,11,.12)] border border-[rgba(245,158,11,.25)] flex items-center justify-center">
+                  <div className="icon-mouse-pointer-click text-xl text-[rgba(253,230,138,1)]"></div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">Fast drill-down</div>
+                  <div className="text-sm text-[var(--muted-text)]">Use line/shift filters to focus quickly.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // LineComparisonTable Component
+    class LineComparisonTable extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = {
+          sort: { key: 'offloading', dir: 'desc' }
+        };
+      }
+
+      toggleSort = (key) => {
+        this.setState(prev => ({
+          sort: prev.sort.key === key
+            ? { key, dir: prev.sort.dir === 'asc' ? 'desc' : 'asc' }
+            : { key, dir: 'desc' }
+        }));
+      };
+
+      formatNumber = (value) => {
+        if (value === null || value === undefined) return '--';
+        return new Intl.NumberFormat().format(value);
+      };
+
+      formatPercent = (value) => {
+        if (value === null || value === undefined) return '--';
+        return `${(value * 100).toFixed(2)}%`;
+      };
+
+      formatMinutes = (value) => {
+        if (value === null || value === undefined) return '--';
+        return `${value}m`;
+      };
+
+      formatVariance = (variance, variancePct) => {
+        if (variance === null || variance === undefined) return '--';
+        const sign = variance >= 0 ? '+' : '';
+        const pct = variancePct ? ` / ${sign}${(variancePct * 100).toFixed(1)}%` : '';
+        return `${sign}${this.formatNumber(variance)}${pct}`;
+      };
+
+      renderCell = (row, col) => {
+        const value = row[col.key];
+        switch (col.type) {
+          case 'number': return this.formatNumber(value);
+          case 'minutes': return this.formatMinutes(value);
+          case 'percent': return this.formatPercent((value || 0) / 100);
+          case 'percentValue': return this.formatPercent((value || 0) / 100);
+          case 'variance': return this.formatVariance(row.variance, row.variancePct);
+          default: return value || '--';
+        }
+      };
+
+      getTone = (row) => {
+        const variance = row.variance || 0;
+        const ach = row.achievementPct || 0;
+        const att = row.attendancePct || 0;
+        const eff = row.efficiency || 0;
+
+        // Blue for excellent performance (outstanding results)
+        if (ach >= 80 && eff >= 75 && att >= 80) return 'excellent';
+        // Green for good performance (meeting expectations)
+        if (ach >= 50 && eff >= 50 && att >= 60) return 'good';
+        // Orange for concerning performance (needs attention)
+        if (ach >= 30 && eff >= 40 && att >= 50) return 'concerning';
+        // Red for poor performance (critical issues)
+        return 'poor';
+      };
+
+      getToneClass = (tone) => {
+        switch (tone) {
+          case 'excellent': return 'text-blue-400';
+          case 'good': return 'text-green-400';
+          case 'poor': return 'text-red-400';
+          case 'concerning': return 'text-orange-400';
+          default: return 'text-white/90';
+        }
+      };
+
+      getRowBackgroundClass = (tone) => {
+        return 'bg-white/5 border-white/10';
+      };
+
+      getRowHoverClass = (tone) => {
+        switch (tone) {
+          case 'excellent': return 'hover:bg-blue-500/15 hover:border-blue-500/40';
+          case 'good': return 'hover:bg-green-500/15 hover:border-green-500/40';
+          case 'poor': return 'hover:bg-red-500/15 hover:border-red-500/40';
+          case 'concerning': return 'hover:bg-orange-500/15 hover:border-orange-500/40';
+          default: return 'hover:bg-white/15';
+        }
+      };
+
+      getSortIconClass = (colKey) => {
+        const { sort } = this.state;
+        if (sort.key !== colKey) return 'icon-arrow-up-down';
+        return sort.dir === 'asc' ? 'icon-arrow-up' : 'icon-arrow-down';
+      };
+
+      render() {
+        const { rows = [], totals = {} } = this.props;
+        const { sort } = this.state;
+
+        const columns = [
+          { key: 'line', label: 'Line', align: 'left', type: 'text', iconClass: 'icon-factory' },
+          { key: 'loading', label: 'Loading', align: 'right', type: 'number', iconClass: 'icon-boxes' },
+          { key: 'offloading', label: 'Offloading', align: 'right', type: 'number', iconClass: 'icon-package-check' },
+          { key: 'wip', label: 'WIP', align: 'right', type: 'number', iconClass: 'icon-box' },
+          { key: 'target', label: 'Target', align: 'right', type: 'number', iconClass: 'icon-target' },
+          { key: 'achievementPct', label: 'Achieve %', align: 'right', type: 'percent', iconClass: 'icon-award' },
+          { key: 'variance', label: 'Variance', align: 'right', type: 'variance', iconClass: 'icon-trending-up' },
+          { key: 'efficiency', label: 'Efficiency', align: 'right', type: 'percentValue', iconClass: 'icon-gauge' },
+          { key: 'defects', label: 'Defects', align: 'right', type: 'number', iconClass: 'icon-bug' },
+          { key: 'defectsPct', label: 'Defects %', align: 'right', type: 'percentValue', iconClass: 'icon-shield-alert' },
+          { key: 'breakdownMin', label: 'Breakdown Time', align: 'right', type: 'minutes', iconClass: 'icon-clock-alert' },
+          { key: 'activeEmployees', label: 'Active Employee', align: 'right', type: 'number', iconClass: 'icon-users' },
+          { key: 'presentEmployees', label: 'Present Employee', align: 'right', type: 'number', iconClass: 'icon-user-check' },
+          { key: 'attendancePct', label: 'Attendance %', align: 'right', type: 'percentValue', iconClass: 'icon-clipboard-check' },
+        ];
+
+        // Sort rows
+        const sortedRows = [...rows].sort((a, b) => {
+          const aVal = a[sort.key] || 0;
+          const bVal = b[sort.key] || 0;
+          const factor = sort.dir === 'asc' ? 1 : -1;
+
+          if (typeof aVal === 'string' && typeof bVal === 'string') {
+            return aVal.localeCompare(bVal) * factor;
+          }
+          return (aVal - bVal) * factor;
+        });
+
+        return (
+          <div className="card p-5 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div>
+                <div className="text-white font-semibold">Line-wise Comparison</div>
+                <div className="text-sm text-[var(--muted-text)]">
+                  Compare loading, offloading, WIP, target, achievement, variance, efficiency, defects, downtime, and workforce attendance by production line.
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="chip">
+                  <div className="icon-target text-xl text-white/90"></div>
+                  <span className="text-white/90">
+                    Total Target: {this.formatNumber(totals.target)}
+                  </span>
+                </span>
+                <span className="chip">
+                  <div className="icon-award text-xl text-white/90"></div>
+                  <span className="text-white/90">
+                    Achievement: {this.formatPercent(((totals.achievementPct || 0) / 100))}
+                  </span>
+                </span>
+                <span className="chip">
+                  <div className="icon-users text-xl text-white/90"></div>
+                  <span className="text-white/90">
+                    Attendance: {this.formatPercent(((totals.attendancePct || 0) / 100))}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4 subtle-divider"></div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-[1200px] w-full border-separate border-spacing-y-2">
+                <thead>
+                  <tr>
+                    {columns.map((col) => (
+                      <th
+                        key={col.key}
+                        className={`text-xs font-semibold text-[var(--muted-text)] px-3 py-2 ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                      >
+                        <button
+                          className="inline-flex items-center gap-2 hover:text-white transition hover:translate-y-[-1px]"
+                          onClick={() => this.toggleSort(col.key)}
+                        >
+                          <div className={`${col.iconClass} text-xl text-white/70`}></div>
+                          <span>{col.label}</span>
+                          <div className={`${this.getSortIconClass(col.key)} text-xl text-white/60`}></div>
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr className="bg-white/10 border border-white/10">
+                    <td className="px-3 py-3 text-sm font-semibold text-white">Totals</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatNumber(totals.loading)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatNumber(totals.offloading)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatNumber(totals.wip)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatNumber(totals.target)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatPercent(((totals.achievementPct || 0) / 100))}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatVariance(totals.variance, totals.variancePct)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatPercent(((totals.efficiency || 0) / 100))}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatNumber(totals.defects)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatPercent(((totals.defectsPct || 0) / 100))}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatMinutes(totals.breakdownMin)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatNumber(totals.activeEmployees)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatNumber(totals.presentEmployees)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-white/90">{this.formatPercent(((totals.attendancePct || 0) / 100))}</td>
+                  </tr>
+
+                  {sortedRows.map((row) => {
+                    const tone = this.getTone(row);
+                    return (
+                      <tr
+                        key={row.line}
+                        className={`rounded-lg transition ${this.getRowBackgroundClass(this.getTone(row))} ${this.getRowHoverClass(this.getTone(row))}`}
+                      >
+                        {columns.map((col) => (
+                          <td
+                            key={col.key}
+                            className={`px-3 py-3 text-sm ${col.align === 'right' ? 'text-right' : 'text-left'} ${
+                              col.key === 'line'
+                                ? `font-semibold ${this.getToneClass(tone)}`
+                                : this.getToneClass(tone)
+                            }`}
+                          >
+                            {this.renderCell(row, col)}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 text-xs text-[var(--muted-text)]">
+              Tip: click any column header to sort. Variance, achievement, and attendance are color-coded for fast scanning.
+            </div>
+          </div>
+        );
+      }
+    }
+
+    class ProductionDashboard extends React.Component {
+      constructor(props) {
+        super(props);
+        console.log('ProductionDashboard constructor called');
+
+        // Chart refs
+        this.flowChartRef = React.createRef();
+        this.productionPieRef = React.createRef();
+        this.defectPieRef = React.createRef();
+        this.linePieRef = React.createRef();
+        this.shiftPieRef = React.createRef();
+        this.lineTrendRef = React.createRef();
+
+        // Safely load injected data
+        let dataBundle = null;
+        let error = null;
+
+        try {
+          console.log('Checking for global data object...');
+          console.log('window.data exists:', typeof window.data);
+
+          if (typeof window.data !== 'undefined' && window.data && typeof window.data === 'object') {
+            dataBundle = window.data;
+            console.log('Successfully loaded injected data:', dataBundle);
+          } else {
+            console.warn('No injected data found, using fallback');
+            dataBundle = this.getFallbackData();
+          }
+        } catch (dataError) {
+          console.error('Error loading data:', dataError);
+          error = `Data loading error: ${dataError.message}`;
+          dataBundle = this.getFallbackData();
+        }
+
+        this.state = {
+          filters: {
+            startDate: new Date().toISOString().slice(0, 10),
+            endDate: new Date().toISOString().slice(0, 10),
+            line: 'All',
+            shift: 'All',
+            po_id: 'All',
+            st_id: 'All',
+          },
+          toastItems: [],
+          dataBundle: dataBundle,
+          loading: false,
+          error: error,
+          poOptions: [],
+          stOptions: [],
+        };
+      }
+
+      getFallbackData = () => {
+        console.log('Using fallback data');
+        return {
+          summary: {
+            totalLoading: 26926,
+            totalOffloading: 26385,
+            totalWip: 541,
+            defects: 48,
+            totalTarget: 17884,
+            variance: 8501,
+            variancePct: 47.5,
+            achievementPct: 147.5,
+            breakdownTimeMin: 120,
+            efficiency: 98.0,
+            activeLines: 12,
+            attendancePct: 94.1,
+          },
+          summaryCards: [
+            { key: 'loading', title: 'Total Loading', value: '26,926', iconClass: 'icon-boxes', tone: 'neutral', footnote: 'Pieces loaded' },
+            { key: 'offloading', title: 'Total Offloading', value: '26,385', iconClass: 'icon-package-check', tone: 'neutral', footnote: 'Pieces offloaded' },
+            { key: 'wip', title: 'Total WIP', value: '541', iconClass: 'icon-box', tone: 'warning', footnote: 'Work in progress' },
+            { key: 'target', title: 'Total Target', value: '17,884', iconClass: 'icon-target', tone: 'neutral', footnote: 'Planned output' },
+            { key: 'variance', title: 'Variance', value: '+8,501 / +47.5%', iconClass: 'icon-trending-up', tone: 'positive', footnote: 'Actual vs target' },
+            { key: 'achievement', title: 'Achievement %', value: '147.5%', iconClass: 'icon-award', tone: 'positive', footnote: 'Attainment' },
+            { key: 'efficiency', title: 'Efficiency', value: '98.0%', iconClass: 'icon-gauge', tone: 'positive', footnote: 'Average line efficiency' },
+            { key: 'attendance', title: 'Attendance %', value: '94.1%', iconClass: 'icon-users', tone: 'positive', footnote: 'Present vs active' },
+            { key: 'breakdown', title: 'Breakdown Time', value: '120 min', iconClass: 'icon-clock-alert', tone: 'neutral', footnote: 'Downtime minutes' },
+            { key: 'defects', title: 'Total Defects', value: '48', iconClass: 'icon-bug', tone: 'neutral', footnote: 'Quality issues' },
+            { key: 'lines', title: 'Active Lines', value: '12', iconClass: 'icon-factory', tone: 'neutral', footnote: 'Running lines' },
+            { key: 'workforce', title: 'Total Workforce', value: '1,220', iconClass: 'icon-users', tone: 'neutral', footnote: 'Active employees' },
+          ],
+          lineComparisonRows: []
+        };
+      }
+
+  componentDidMount() {
+    console.log('ProductionDashboard mounted successfully with data:', this.state.dataBundle);
+    // Automatically apply current date filters on load
+    this.onApplyFilters();
+    // Initialize all charts
+    this.initializeProductionFlowChart();
+    this.initializePieCharts();
+    this.initializeLineTrendChart();
+  }
+
+  componentWillUnmount() {
+    // Destroy all charts on unmount
+    if (this.flowChartInstance) {
+      this.flowChartInstance.destroy();
+      this.flowChartInstance = null;
+    }
+    if (this.productionPieInstance) {
+      this.productionPieInstance.destroy();
+      this.productionPieInstance = null;
+    }
+    if (this.defectPieInstance) {
+      this.defectPieInstance.destroy();
+      this.defectPieInstance = null;
+    }
+    if (this.linePieInstance) {
+      this.linePieInstance.destroy();
+      this.linePieInstance = null;
+    }
+    if (this.shiftPieInstance) {
+      this.shiftPieInstance.destroy();
+      this.shiftPieInstance = null;
+    }
+    if (this.lineTrendInstance) {
+      this.lineTrendInstance.destroy();
+      this.lineTrendInstance = null;
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    // Re-initialize all charts when data changes
+    if (prevState.dataBundle !== this.state.dataBundle) {
+      this.initializeProductionFlowChart();
+      this.initializePieCharts();
+      this.initializeLineTrendChart();
+    }
+  }
+
+  initializeProductionFlowChart = () => {
+    const canvas = this.flowChartRef.current;
+    if (!canvas) return;
+
+    // Destroy existing chart
+    if (this.flowChartInstance) {
+      this.flowChartInstance.destroy();
+      this.flowChartInstance = null;
+    }
+
+    const { dataBundle } = this.state;
+    const lineRows = dataBundle.lineComparisonRows || [];
+
+    if (lineRows.length === 0) return;
+
+    // Filter lines from line-21 to line-32
+    let filteredLines = lineRows.filter(row => {
+      const lineName = row.line || '';
+      if (!lineName.startsWith('line-')) return false;
+      const num = parseInt(lineName.replace('line-', ''));
+      return num >= 21 && num <= 32;
+    }).sort((a, b) => a.line.localeCompare(b.line));
+
+    // Use mock data if no filtered lines available
+    if (filteredLines.length === 0) {
+      console.log('Using mock data for production flow chart (lines 21-32)');
+      filteredLines = [];
+      for (let i = 21; i <= 32; i++) {
+        filteredLines.push({
+          line: `line-${i}`,
+          loading: Math.round(500 + Math.random() * 500),
+          offloading: Math.round(400 + Math.random() * 400),
+          wip: Math.round(50 + Math.random() * 100)
+        });
+      }
+    }
+
+    const labels = filteredLines.map(row => row.line || 'Unknown');
+    const loadingData = filteredLines.map(row => row.loading || 0);
+    const offloadingData = filteredLines.map(row => row.offloading || 0);
+    const wipData = filteredLines.map(row => row.wip || 0);
+
+    // Calculate dynamic y-axis maximum based on stacked values
+    const stackedValues = loadingData.map((loading, index) =>
+      (loading || 0) + (offloadingData[index] || 0) + (wipData[index] || 0)
+    );
+    const maxStackedValue = Math.max(...stackedValues, 0);
+    // Add 15% padding and ensure minimum of 100 for small values
+    const dynamicMax = Math.max(maxStackedValue * 1.15, 100);
+
+    try {
+      this.flowChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Loading', data: loadingData, backgroundColor: 'rgba(14,165,233,.85)', borderRadius: 10 },
+            { label: 'Offloading', data: offloadingData, backgroundColor: 'rgba(34,197,94,.85)', borderRadius: 10 },
+            { label: 'WIP', data: wipData, backgroundColor: 'rgba(245,158,11,.85)', borderRadius: 10 },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: {
+            x: {
+              stacked: true,
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#9aa8c3' }
+            },
+            y: {
+              stacked: true,
+              min: 0,
+              max: dynamicMax,
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: {
+                color: '#9aa8c3',
+                callback: function(value) { return value.toLocaleString(); }
+              }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#e5e7eb' } },
+            tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#e5e7eb',
+              bodyColor: '#e5e7eb'
+            }
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error initializing production flow chart:', error);
+    }
+  }
+
+  initializePieCharts = () => {
+    const { dataBundle } = this.state;
+    const pieCharts = dataBundle?.pieCharts || {};
+
+    // Destroy existing pie charts
+    if (this.productionPieInstance) {
+      this.productionPieInstance.destroy();
+      this.productionPieInstance = null;
+    }
+    if (this.defectPieInstance) {
+      this.defectPieInstance.destroy();
+      this.defectPieInstance = null;
+    }
+    if (this.linePieInstance) {
+      this.linePieInstance.destroy();
+      this.linePieInstance = null;
+    }
+    if (this.shiftPieInstance) {
+      this.shiftPieInstance.destroy();
+      this.shiftPieInstance = null;
+    }
+
+    const pieChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '50%', // Donut chart
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            color: '#e5e7eb',
+            font: { size: 12 }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#e5e7eb',
+          bodyColor: '#e5e7eb',
+          borderColor: 'rgba(20, 184, 166, 0.3)',
+          borderWidth: 1,
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.parsed || 0;
+              const formattedValue = new Intl.NumberFormat().format(value);
+
+              // Calculate percentage
+              const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+
+              return `${label}: ${formattedValue} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    };
+
+    // Production vs Target Pie Chart
+    const productionCanvas = this.productionPieRef.current;
+    if (productionCanvas && pieCharts.productionDistribution && pieCharts.productionDistribution.length > 0) {
+      const productionData = pieCharts.productionDistribution;
+      try {
+        this.productionPieInstance = new Chart(productionCanvas, {
+          type: 'pie',
+          data: {
+            labels: productionData.map(d => d.label),
+            datasets: [{
+              data: productionData.map(d => d.value),
+              backgroundColor: productionData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Production pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating production pie chart:', error);
+      }
+    }
+
+    // Defect Reasons Pie Chart
+    const defectCanvas = this.defectPieRef.current;
+    if (defectCanvas && pieCharts.defectBreakdown) {
+      const defectData = pieCharts.defectBreakdown;
+      try {
+        this.defectPieInstance = new Chart(defectCanvas, {
+          type: 'pie',
+          data: {
+            labels: defectData.map(d => d.label),
+            datasets: [{
+              data: defectData.map(d => d.value),
+              backgroundColor: defectData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Defect pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating defect pie chart:', error);
+      }
+    }
+
+    // Line Performance Pie Chart
+    const lineCanvas = this.linePieRef.current;
+    if (lineCanvas && pieCharts.linePerformance) {
+      const lineData = pieCharts.linePerformance;
+      try {
+        this.linePieInstance = new Chart(lineCanvas, {
+          type: 'pie',
+          data: {
+            labels: lineData.map(d => d.label),
+            datasets: [{
+              data: lineData.map(d => d.value),
+              backgroundColor: lineData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Line performance pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating line performance pie chart:', error);
+      }
+    }
+
+    // Shift Distribution Pie Chart
+    const shiftCanvas = this.shiftPieRef.current;
+    if (shiftCanvas && pieCharts.shiftDistribution) {
+      const shiftData = pieCharts.shiftDistribution;
+      try {
+        this.shiftPieInstance = new Chart(shiftCanvas, {
+          type: 'pie',
+          data: {
+            labels: shiftData.map(d => d.label),
+            datasets: [{
+              data: shiftData.map(d => d.value),
+              backgroundColor: shiftData.map(d => d.color),
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+          },
+          options: pieChartOptions
+        });
+        console.log('Shift distribution pie chart updated successfully');
+      } catch (error) {
+        console.error('Error updating shift distribution pie chart:', error);
+      }
+    }
+  }
+
+  initializeLineTrendChart = () => {
+    const { dataBundle } = this.state;
+    const lineTrendData = dataBundle?.lineTrendData || [];
+
+    // Destroy existing chart
+    if (this.lineTrendInstance) {
+      this.lineTrendInstance.destroy();
+      this.lineTrendInstance = null;
+    }
+
+    const trendCanvas = this.lineTrendRef.current;
+    if (!trendCanvas) return;
+
+    // Use mock data if no real data available
+    let chartData = lineTrendData;
+    if (!lineTrendData || lineTrendData.length === 0) {
+      console.log('Using mock data for line trend chart');
+      // Generate mock data for last 30 days
+      chartData = [];
+      const today = new Date();
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const baseValue = 1500 + Math.random() * 500; // Base production around 1500-2000
+        chartData.push({
+          date: date.toISOString().split('T')[0],
+          loading: Math.round(baseValue + Math.random() * 200),
+          offloading: Math.round(baseValue * 0.9 + Math.random() * 100),
+          efficiency: Math.round(85 + Math.random() * 15), // 85-100% efficiency
+          wip: Math.round(baseValue * 0.1 + Math.random() * 50)
+        });
+      }
+    }
+
+    if (chartData.length > 0) {
+      // Prepare data for line chart
+      const dates = chartData.map(d => {
+        const date = new Date(d.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+      const loadingData = chartData.map(d => d.loading);
+      const offloadingData = chartData.map(d => d.offloading);
+      const wipData = chartData.map(d => d.wip);
+
+      const lineChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            ticks: { color: '#9aa8c3', maxTicksLimit: 10 }
+          },
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            ticks: { color: '#9aa8c3' }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: { color: '#e5e7eb', font: { size: 12 } }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: '#e5e7eb',
+            bodyColor: '#e5e7eb',
+            borderColor: 'rgba(20, 184, 166, 0.3)',
+            borderWidth: 1
+          }
+        }
+      };
+
+      console.log('Creating line trend chart with', chartData.length, 'data points');
+
+      try {
+        this.lineTrendInstance = new Chart(trendCanvas, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [
+              {
+                label: 'Loading',
+                data: loadingData,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4,
+                fill: false,
+                pointRadius: 3,
+                pointHoverRadius: 6
+              },
+              {
+                label: 'Offloading',
+                data: offloadingData,
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                tension: 0.4,
+                fill: false,
+                pointRadius: 3,
+                pointHoverRadius: 6
+              },
+              {
+                label: 'WIP',
+                data: wipData,
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                tension: 0.4,
+                fill: false,
+                pointRadius: 3,
+                pointHoverRadius: 6
+              }
+            ]
+          },
+          options: lineChartOptions
+        });
+        console.log('Line trend chart updated successfully');
+      } catch (error) {
+        console.error('Error updating line trend chart:', error);
+      }
+    }
+  }
+
+      transformApiResponse = (apiData) => {
+        console.log('🔄 Transforming PostgreSQL API response to dashboard format');
+
+        // Extract data from PostgreSQL API response
+        const { summary: apiSummary = {}, lineRows = [] } = apiData;
+
+        // Create summaryCards from summary data
+        const summaryCards = [
+          {
+            key: 'loading',
+            title: 'Total Loading',
+            value: (apiSummary.totalLoading || 0).toLocaleString(),
+            iconClass: 'icon-boxes',
+            tone: 'neutral',
+            footnote: 'Pieces loaded'
+          },
+          {
+            key: 'offloading',
+            title: 'Total Offloading',
+            value: (apiSummary.totalOffloading || 0).toLocaleString(),
+            iconClass: 'icon-package-check',
+            tone: 'neutral',
+            footnote: 'Pieces offloaded'
+          },
+          {
+            key: 'wip',
+            title: 'Total WIP',
+            value: (apiSummary.totalWip || 0).toLocaleString(),
+            iconClass: 'icon-box',
+            tone: apiSummary.totalWip > 60 ? 'warning' : 'neutral',
+            footnote: 'Work in progress'
+          },
+          {
+            key: 'target',
+            title: 'Total Target',
+            value: (apiSummary.totalTarget || 0).toLocaleString(),
+            iconClass: 'icon-target',
+            tone: 'neutral',
+            footnote: 'Planned output'
+          },
+          {
+            key: 'variance',
+            title: 'Variance',
+            value: `${apiSummary.variance >= 0 ? '+' : ''}${(apiSummary.variance || 0).toLocaleString()} / ${apiSummary.variancePct >= 0 ? '+' : ''}${(apiSummary.variancePct || 0).toFixed(2)}%`,
+            iconClass: 'icon-trending-up',
+            tone: (apiSummary.variance || 0) >= 0 ? 'positive' : 'negative',
+            footnote: 'Actual vs target'
+          },
+          {
+            key: 'achievement',
+            title: 'Achievement %',
+            value: `${Number(apiSummary.achievementPct || 0).toFixed(2)}%`,
+            iconClass: 'icon-award',
+            tone: (apiSummary.achievementPct || 0) >= 100 ? 'positive' : 'neutral',
+            footnote: 'Attainment'
+          },
+          {
+            key: 'efficiency',
+            title: 'Efficiency',
+            value: `${Number(apiSummary.efficiency || 0).toFixed(2)}%`,
+            iconClass: 'icon-gauge',
+            tone: (apiSummary.efficiency || 0) >= 98 ? 'positive' : (apiSummary.efficiency || 0) >= 95 ? 'neutral' : 'warning',
+            footnote: 'Average line efficiency'
+          },
+          {
+            key: 'attendance',
+            title: 'Attendance %',
+            value: `${Number(apiSummary.attendancePct || 0).toFixed(2)}%`,
+            iconClass: 'icon-users',
+            tone: (apiSummary.attendancePct || 0) >= 95 ? 'positive' : (apiSummary.attendancePct || 0) >= 90 ? 'neutral' : 'warning',
+            footnote: 'Present vs active'
+          },
+          {
+            key: 'breakdown',
+            title: 'Breakdown Time',
+            value: `${apiSummary.breakdownTimeMin || 0} min`,
+            iconClass: 'icon-clock-alert',
+            tone: 'neutral',
+            footnote: 'Downtime minutes'
+          },
+          {
+            key: 'defects',
+            title: 'Total Defects',
+            value: (apiSummary.defects || 0).toLocaleString(),
+            iconClass: 'icon-bug',
+            tone: 'neutral',
+            footnote: 'Quality issues'
+          },
+          {
+            key: 'lines',
+            title: 'Active Lines',
+            value: String(apiSummary.activeLines || 0),
+            iconClass: 'icon-factory',
+            tone: 'neutral',
+            footnote: 'Running lines'
+          },
+          {
+            key: 'workforce',
+            title: 'Total Workforce',
+            value: (apiSummary.totalActiveEmployees || 0).toLocaleString(),
+            iconClass: 'icon-users',
+            tone: 'neutral',
+            footnote: 'Active employees'
+          }
+        ];
+
+        // Transform lineRows to lineComparisonRows format
+        const lineComparisonRows = lineRows.map(row => ({
+          line: row.line || 'Unknown',
+          loading: row.loading || 0,
+          offloading: row.offloading || 0,
+          wip: row.wip || 0,
+          target: row.target || 0,
+          efficiency: row.efficiency || 0,
+          defects: row.defects || 0,
+          breakdownMin: row.breakdownMin || 0,
+          activeEmployees: row.workforce?.activeEmployees || 0,
+          presentEmployees: row.workforce?.presentEmployees || 0,
+          variance: row.offloading - (row.target || 0),
+          achievementPct: row.target > 0 ? (row.offloading / row.target) * 100 : 0,
+          defectsPct: row.offloading > 0 ? (row.defects / row.offloading) * 100 : 0,
+          attendancePct: row.workforce?.activeEmployees > 0 ?
+            ((row.workforce.presentEmployees || 0) / row.workforce.activeEmployees) * 100 : 0,
+          variancePct: row.target > 0 ? ((row.offloading - row.target) / row.target) * 100 : 0
+        }));
+
+        // Create summary with additional computed fields
+        const summary = {
+          ...apiSummary,
+          loading: apiSummary.totalLoading || 0,
+          offloading: apiSummary.totalOffloading || 0,
+          wip: apiSummary.totalWip || 0,
+          target: apiSummary.totalTarget || 0,
+          variance: apiSummary.variance || 0,
+          variancePct: apiSummary.variancePct || 0,
+          achievementPct: apiSummary.achievementPct || 0,
+          efficiency: apiSummary.efficiency || 0,
+          defects: apiSummary.defects || 0,
+          defectsPct: apiSummary.totalOffloading > 0 ? (apiSummary.defects / apiSummary.totalOffloading) * 100 : 0,
+          breakdownMin: apiSummary.breakdownTimeMin || 0,
+          activeEmployees: apiSummary.totalActiveEmployees || 0,
+          presentEmployees: apiSummary.totalPresentEmployees || 0,
+          attendancePct: apiSummary.attendancePct || 0
+        };
+
+        // Create pieCharts data for visualizations
+        const pieCharts = {};
+
+        // Production vs Target Distribution
+        if (apiSummary.totalTarget > 0 && apiSummary.totalOffloading > 0) {
+          const targetValue = apiSummary.totalTarget;
+          const actualValue = apiSummary.totalOffloading;
+          const varianceValue = Math.max(0, targetValue - actualValue);
+
+          pieCharts.productionDistribution = [
+            { label: 'Target', value: targetValue, color: 'rgba(34,197,94,.8)' },
+            { label: 'Actual', value: actualValue, color: 'rgba(14,165,233,.8)' }
+          ];
+
+          if (varianceValue > 0) {
+            pieCharts.productionDistribution.push(
+              { label: 'Variance', value: varianceValue, color: 'rgba(245,158,11,.8)' }
+            );
+          }
+        }
+
+        // Defect Reasons (use defectReasons from API)
+        if (apiData.defectReasons && apiData.defectReasons.reasons && apiData.defectReasons.values) {
+          const defectColors = [
+            'rgba(239,68,68,.8)',   // red-500
+            'rgba(245,158,11,.8)',  // amber-500
+            'rgba(234,179,8,.8)',   // yellow-500
+            'rgba(34,197,94,.8)',   // green-500
+            'rgba(14,165,233,.8)',  // blue-500
+            'rgba(147,51,234,.8)',  // violet-500
+            'rgba(236,72,153,.8)',  // pink-500
+            'rgba(75,85,99,.8)'     // gray-600
+          ];
+
+          pieCharts.defectBreakdown = apiData.defectReasons.reasons.map((reason, index) => ({
+            label: reason.name,  // Fix: Use reason.name instead of reason object
+            value: apiData.defectReasons.values[index] || 0,
+            color: defectColors[index % defectColors.length]
+          })).filter(item => item.value > 0);
+        }
+
+        // Line Performance (based on efficiency from lineRows)
+        if (lineRows && lineRows.length > 0) {
+          const lineColors = [
+            'rgba(14,165,233,.8)',  // blue-500
+            'rgba(34,197,94,.8)',   // green-500
+            'rgba(245,158,11,.8)',  // amber-500
+            'rgba(239,68,68,.8)',   // red-500
+            'rgba(147,51,234,.8)',  // violet-500
+            'rgba(236,72,153,.8)',  // pink-500
+            'rgba(6,182,212,.8)',   // cyan-500
+            'rgba(16,185,129,.8)'   // emerald-500
+          ];
+
+          // Sort lines by efficiency and show all lines
+          const topLines = lineRows
+            .sort((a, b) => (b.efficiency || 0) - (a.efficiency || 0));
+
+          pieCharts.linePerformance = topLines.map((line, index) => ({
+            label: line.line || `Line ${index + 1}`,
+            value: line.efficiency || 0,
+            color: lineColors[index % lineColors.length]
+          })).filter(item => item.value > 0);
+        }
+
+        // Shift Distribution (sum offloading by shift type)
+        if (lineRows && lineRows.length > 0) {
+          const shiftProduction = lineRows.reduce((acc, line) => {
+            if (line.shift?.day > 0) acc['Day'] = (acc['Day'] || 0) + line.shift.day;
+            if (line.shift?.night > 0) acc['Night'] = (acc['Night'] || 0) + line.shift.night;
+            return acc;
+          }, {});
+
+          const shiftColors = {
+            'Day': 'rgba(251,191,36,.8)',    // yellow-400
+            'Night': 'rgba(99,102,241,.8)',  // indigo-500
+            'Unknown': 'rgba(156,163,175,.8)' // gray-400
+          };
+
+          pieCharts.shiftDistribution = Object.entries(shiftProduction).map(([shift, production]) => ({
+            label: shift,
+            value: production,
+            color: shiftColors[shift] || 'rgba(156,163,175,.8)'
+          }));
+        }
+
+        const transformedData = {
+          summary,
+          summaryCards,
+          lineComparisonRows,
+          pieCharts
+        };
+
+        console.log('✅ Transformed data with pie charts:', transformedData);
+        return transformedData;
+      }
+
+      fetchFilteredData = async (filters) => {
+        try {
+          console.log('🔄 Starting fetchFilteredData with filters:', filters);
+
+          // Build query string from filters for PostgreSQL API
+          const params = new URLSearchParams();
+          if (filters.startDate) params.append('start_date', filters.startDate);
+          if (filters.endDate) params.append('end_date', filters.endDate);
+          if (filters.line && filters.line !== 'All') params.append('line', filters.line);
+          if (filters.shift && filters.shift !== 'All') params.append('shift', filters.shift);
+          if (filters.po_id && filters.po_id !== 'All') params.append('po_id', filters.po_id);
+          if (filters.st_id && filters.st_id !== 'All') params.append('st_id', filters.st_id);
+
+          const queryString = params.toString();
+          const apiUrl = `http://localhost:3002/api/production-data?${queryString}`;
+
+          // Build trend query - same filters but always 30 days
+          const trendParams = new URLSearchParams();
+          trendParams.append('end_date', filters.endDate || new Date().toISOString().slice(0, 10));
+          if (filters.line && filters.line !== 'All') trendParams.append('line', filters.line);
+          if (filters.shift && filters.shift !== 'All') trendParams.append('shift', filters.shift);
+          if (filters.po_id && filters.po_id !== 'All') trendParams.append('po_id', filters.po_id);
+          if (filters.st_id && filters.st_id !== 'All') trendParams.append('st_id', filters.st_id);
+
+          const trendQueryString = trendParams.toString();
+          const trendApiUrl = `http://localhost:3002/api/production-trend?${trendQueryString}`;
+
+          console.log('🌐 Fetching from PostgreSQL API URL:', apiUrl);
+          console.log('📈 Fetching 30-day trend data from:', trendApiUrl);
+
+          // Make parallel requests to both endpoints
+          console.log('📡 Making parallel requests to PostgreSQL server...');
+          const [response, trendResponse] = await Promise.all([
+            fetch(apiUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            }),
+            fetch(trendApiUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            })
+          ]);
+
+          console.log('📊 Production data response status:', response.status);
+          console.log('📊 Trend data response status:', trendResponse.status);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ HTTP Error response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const apiData = await response.json();
+          console.log('📄 Received PostgreSQL API response:', apiData);
+
+          // Check if response contains error
+          if (apiData.error) {
+            throw new Error(apiData.error);
+          }
+
+          // Parse trend data
+          let trendData = [];
+          if (trendResponse.ok) {
+            const trendApiData = await trendResponse.json();
+            console.log('📈 Received trend API response:', trendApiData);
+            trendData = trendApiData.trendData || [];
+            console.log(`✅ Loaded ${trendData.length} days of trend data`);
+          } else {
+            console.warn('⚠️ Trend data fetch failed, chart will use mock data');
+          }
+
+          // Transform PostgreSQL API response to dashboard format
+          const transformedData = this.transformApiResponse(apiData);
+          
+          // Add trend data to the bundle
+          transformedData.lineTrendData = trendData;
+
+          console.log('✅ Successfully transformed data for dashboard with trend data');
+          this.setState({ dataBundle: transformedData, loading: false });
+          return transformedData;
+
+        } catch (error) {
+          console.error('💥 Error in fetchFilteredData:', error);
+          console.error('💥 Error stack:', error.stack);
+          this.addToast({
+            type: 'error',
+            title: 'Filter Error',
+            message: `Failed to apply filters: ${error.message}`
+          });
+          throw error;
+        }
+      }
+
+      addToast = (item) => {
+        const newToast = { ...item, id: `${Date.now()}-${Math.random()}` };
+        this.setState(prevState => ({
+          toastItems: [...prevState.toastItems, newToast].slice(-4)
+        }));
+
+        // Auto-dismiss after 4 seconds
+        setTimeout(() => {
+          this.setState(prevState => ({
+            toastItems: prevState.toastItems.filter(t => t.id !== newToast.id)
+          }));
+        }, 4000);
+      }
+
+      onApplyFilters = async () => {
+        try {
+          console.log('🎯 Applying filters:', this.state.filters);
+          this.setState({ loading: true });
+
+          // Use dates directly as selected by user (no timezone conversion)
+          const filters = { ...this.state.filters };
+
+          console.log('📅 Using selected dates directly:', {
+            startDate: filters.startDate,
+            endDate: filters.endDate
+          });
+
+          // Update dropdown options based on selected date range
+          // If date range is too narrow (same day), expand it to ensure data exists
+          let dropdownStartDate = filters.startDate;
+          let dropdownEndDate = filters.endDate;
+
+          if (filters.startDate === filters.endDate) {
+            // Single day selected - expand to 30 days for dropdown population
+            const selectedDate = new Date(filters.startDate);
+            const thirtyDaysAgo = new Date(selectedDate);
+            thirtyDaysAgo.setDate(selectedDate.getDate() - 30);
+
+            dropdownStartDate = thirtyDaysAgo.toISOString().slice(0, 10);
+            dropdownEndDate = filters.endDate;
+
+            console.log('📅 Single day selected, expanding dropdown range:', {
+              original: filters.startDate,
+              expanded: { startDate: dropdownStartDate, endDate: dropdownEndDate }
+            });
+          }
+
+          if (window.fetchDropdownOptions) {
+            console.log('🔄 Updating dropdown options for date range:', {
+              startDate: dropdownStartDate,
+              endDate: dropdownEndDate
+            });
+            await window.fetchDropdownOptions(dropdownStartDate, dropdownEndDate);
+
+            // Reset PO ID and ST ID selections to 'All' since options changed
+            this.setState(prevState => ({
+              filters: {
+                ...prevState.filters,
+                po_id: 'All',
+                st_id: 'All'
+              }
+            }));
+          }
+
+          // Fetch new data with selected filters
+          const newData = await this.fetchFilteredData(filters);
+          console.log('📊 Filter response received:', newData);
+          console.log('🔍 Detailed filter analysis:', {
+            filters: filters,
+            hasSummary: !!(newData && newData.summary),
+            summaryKeys: newData && newData.summary ? Object.keys(newData.summary) : [],
+            hasLineRows: !!(newData && newData.lineComparisonRows && newData.lineComparisonRows.length > 0),
+            lineRowsCount: newData && newData.lineComparisonRows ? newData.lineComparisonRows.length : 0
+          });
+
+          if (newData && newData.summary) {
+            console.log('✅ Filter successful - new summary:', newData.summary);
+          } else {
+            console.warn('⚠️ Filter response missing expected data structure - check if filters are too restrictive');
+            console.warn('💡 Try using broader filters or different date ranges');
+          }
+
+          this.addToast({
+            type: 'success',
+            title: 'Filters Applied',
+            message: 'Dashboard updated with selected date filtering and refreshed dropdown options.'
+          });
+        } catch (error) {
+          console.error('💥 Filter application error:', error);
+          this.addToast({
+            type: 'error',
+            title: 'Filter Error',
+            message: `Failed to apply filters: ${error.message}`
+          });
+        } finally {
+          this.setState({ loading: false });
+        }
+      }
+
+      render() {
+        const { loading, dataBundle, filters, toastItems } = this.state;
+
+        if (loading) {
+          return (
+            <div className="app-shell flex items-center justify-center min-h-screen">
+              <div className="card p-8">
+                <div className="text-white text-xl mb-4">Loading Production Dashboard...</div>
+                <div className="w-64 h-2 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-[var(--primary-color)] rounded-full animate-pulse" style={{width: '60%'}}></div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const summary = dataBundle?.summary || {};
+        const summaryCards = dataBundle?.summaryCards || [];
+
+        return (
+          <div className="app-shell">
+            <div className="max-w-7xl mx-auto px-4 py-6">
+              {/* Header */}
+              <HeaderBar
+                title="Hanger Line Apparel"
+                subtitle="Production Dashboard"
+              />
+
+              {/* Filters */}
+              <div className="mt-5">
+                <FilterBar
+                  filters={filters}
+                  setFilters={(newFilters) => this.setState({ filters: { ...filters, ...newFilters } })}
+                  onApply={this.onApplyFilters}
+                />
+              </div>
+
+
+              {/* Production Snapshot */}
+              <div className="mt-6">
+                <div className="tile p-6 hover-lift hover-outline">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-[var(--primary-color)] flex items-center justify-center shadow-[0_14px_40px_rgba(14,165,233,.35)]">
+                          <div className="icon-chart-bar text-2xl text-white"></div>
+                        </div>
+                        <div>
+                          <div className="text-white text-xl font-semibold">Production Snapshot</div>
+                          <div className="text-sm text-[var(--muted-text)]">
+                            Real-time overview with key performance indicators and operational metrics.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="chip">
+                        <div className="icon-factory text-xl text-white/90"></div>
+                        <span className="text-white/90">{summary.activeLines || 12} Active Lines</span>
+                      </span>
+                      <span className="chip">
+                        <div className="icon-gauge text-xl text-white/90"></div>
+                        <span className="text-white/90">{Number(summary.efficiency || 98.0).toFixed(2)}% Efficiency</span>
+                      </span>
+                      <span className="chip">
+                        <div className="icon-clock text-xl text-white/90"></div>
+                        <span className="text-white/90">{summary.breakdownTimeMin || 0} min Breakdown</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 subtle-divider"></div>
+
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <SummaryCard
+                      title="Variance"
+                      value={`${summary.variance >= 0 ? '+' : ''}${summary.variance || 8501} / ${summary.variancePct >= 0 ? '+' : ''}${(summary.variancePct || 47.5).toFixed(2)}%`}
+                      iconClass="icon-trending-up"
+                      tone="positive"
+                      footnote="Against total target"
+                    />
+                    <SummaryCard
+                      title="Attendance %"
+                      value={`${summary.attendancePct || 94.1}%`}
+                      iconClass="icon-users"
+                      tone="positive"
+                      footnote="Present vs active employees"
+                    />
+                    <SummaryCard
+                      title="Total WIP"
+                      value={String(summary.totalWip || 541)}
+                      iconClass="icon-box"
+                      tone="warning"
+                      footnote="Work in progress"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Navigation Bar */}
+              <div className="mt-6">
+                <div className="card p-4 hover-outline">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                        <div className="icon-navigation text-xl text-[var(--primary-color)]"></div>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">Quick Navigation</div>
+                        <div className="text-sm text-[var(--muted-text)]">Jump to key sections instantly</div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('summary-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-chart-bar text-xl text-white"></div>
+                        <span>Go to Summary</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('linewise-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-factory text-xl text-white"></div>
+                        <span>Go to Line Performance</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('analytics-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-trending-up text-xl text-white"></div>
+                        <span>Go to Analytics View</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary Cards */}
+              <div id="summary-section" className="mt-8">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div>
+                    <div className="text-white font-semibold text-lg">Total Summary</div>
+                    <div className="text-sm text-[var(--muted-text)]">
+                      Comprehensive operational metrics and key performance indicators.
+                    </div>
+                  </div>
+                  <div className="text-sm text-[var(--muted-text)]">
+                    {summaryCards.length} metrics displayed
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                  {summaryCards.map((card, index) => (
+                    <SummaryCard
+                      key={card.key || index}
+                      title={card.title}
+                      value={card.value}
+                      iconClass={card.iconClass}
+                      tone={card.tone}
+                      footnote={card.footnote}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Line-wise Performance */}
+              <div id="linewise-section" className="mt-8">
+                <div className="flex items-end justify-between gap-4 mb-4">
+                  <div>
+                    <div className="text-white font-semibold text-lg">Line-wise Performance</div>
+                    <div className="text-sm text-[var(--muted-text)]">
+                      Individual line metrics with efficiency, targets, and variance analysis.
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="chip">
+                      <div className="icon-target text-xl text-white/90"></div>
+                      <span className="text-white/90">Target: {summary.totalTarget ? summary.totalTarget.toLocaleString() : '17,884'}</span>
+                    </span>
+                    <span className="chip">
+                      <div className="icon-package-check text-xl text-white/90"></div>
+                      <span className="text-white/90">Total: {summary.totalOffloading ? summary.totalOffloading.toLocaleString() : '26,385'}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Top Loading Lines */}
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                        <div className="icon-boxes text-xl text-blue-400"></div>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">Top Loading Lines</div>
+                        <div className="text-sm text-[var(--muted-text)]">Lines with highest loading volume</div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {(dataBundle.lineComparisonRows || []).slice(0, 3).map((item, index) => {
+                        const totalLoading = summary.totalLoading || 26926;
+                        const percent = totalLoading > 0 ? ((item.loading || 0) / totalLoading * 100).toFixed(1) : 0;
+                        return (
+                          <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                <span className="text-xs font-bold text-green-400">{(item.line || '').slice(-2)}</span>
+                              </div>
+                              <div>
+                                <div className="text-white font-medium">{item.line || 'Unknown'}</div>
+                                <div className="text-xs text-[var(--muted-text)]">Eff: {item.efficiency || 0}%</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-white font-semibold">{(item.loading || 0).toLocaleString()}</div>
+                              <div className="text-xs text-[var(--muted-text)]">{percent}% of total</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Efficiency Leaders */}
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <div className="icon-gauge text-xl text-green-400"></div>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">Efficiency Leaders</div>
+                        <div className="text-sm text-[var(--muted-text)]">Top performing lines by efficiency</div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {(dataBundle.lineComparisonRows || [])
+                        .sort((a, b) => (b.efficiency || 0) - (a.efficiency || 0)) // Sort by highest efficiency
+                        .slice(0, 3)
+                        .map((item, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                <span className="text-xs font-bold text-green-400">{(item.line || '').slice(-2)}</span>
+                              </div>
+                              <div>
+                                <div className="text-white font-medium">{item.line || 'Unknown'}</div>
+                                <div className="text-xs text-[var(--muted-text)]">{item.efficiency || 0}% efficiency</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-sm font-semibold ${item.variance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {item.variance >= 0 ? '+' : ''}{item.variance || 0}
+                              </div>
+                              <div className="text-xs text-[var(--muted-text)]">{(item.offloading || 0).toLocaleString()}/{(item.target || 0).toLocaleString()}</div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Line Comparison Table */}
+              <div className="mt-8">
+                <LineComparisonTable
+                  rows={dataBundle.lineComparisonRows || []}
+                  totals={summary}
+                />
+              </div>
+
+              {/* Quick Navigation Bar */}
+              <div className="mt-6">
+                <div className="card p-4 hover-outline">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                        <div className="icon-navigation text-xl text-[var(--primary-color)]"></div>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">Quick Navigation</div>
+                        <div className="text-sm text-[var(--muted-text)]">Jump to key sections instantly</div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('summary-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-chart-bar text-xl text-white"></div>
+                        <span>Go to Summary</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('linewise-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-factory text-xl text-white"></div>
+                        <span>Go to Line Performance</span>
+                      </button>
+
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          const element = document.getElementById('analytics-section');
+                          if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                      >
+                        <div className="icon-trending-up text-xl text-white"></div>
+                        <span>Go to Analytics View</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Analytics Section */}
+              <div id="analytics-section" className="mt-8">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div>
+                    <div className="text-white font-semibold text-lg">Analytics & Trends</div>
+                    <div className="text-sm text-[var(--muted-text)]">
+                      Visual analytics with charts and trend analysis for operational insights.
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="chip">
+                      <div className="icon-bar-chart text-xl text-white/90"></div>
+                      <span className="text-white/90">Interactive Charts</span>
+                    </span>
+                    <span className="chip">
+                      <div className="icon-trending-up text-xl text-white/90"></div>
+                      <span className="text-white/90">Trend Analysis</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Trend Cards */}
+                  <div className="lg:col-span-12">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="card p-4 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm text-[var(--muted-text)]">Efficiency Trend</div>
+                            <div className="text-lg font-semibold text-green-400">↗️ +2.3%</div>
+                          </div>
+                          <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                            <div className="icon-trending-up text-lg text-green-400"></div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-[var(--muted-text)]">vs last week</div>
+                      </div>
+
+                      <div className="card p-4 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm text-[var(--muted-text)]">WIP Reduction</div>
+                            <div className="text-lg font-semibold text-blue-400">↘️ -8.1%</div>
+                          </div>
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                            <div className="icon-trending-down text-lg text-blue-400"></div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-[var(--muted-text)]">inventory optimization</div>
+                      </div>
+
+                      <div className="card p-4 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm text-[var(--muted-text)]">Breakdown Time</div>
+                            <div className="text-lg font-semibold text-orange-400">↗️ +15 min</div>
+                          </div>
+                          <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                            <div className="icon-clock-alert text-lg text-orange-400"></div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-[var(--muted-text)]">needs attention</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Production Flow Chart */}
+                  <div className="lg:col-span-12">
+                    <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                          <div className="icon-bar-chart-3 text-xl text-purple-400"></div>
+                        </div>
+                        <div>
+                          <div className="text-white font-semibold">Production Flow Analysis</div>
+                          <div className="text-sm text-[var(--muted-text)]">Loading → Offloading → WIP movement by line (21-32)</div>
+                        </div>
+                      </div>
+                      <canvas ref={this.flowChartRef} width="800" height="320"></canvas>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Line Trend Chart - Last 30 Days */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div>
+                      <div className="text-white font-semibold text-lg">Production Trend - Last 30 Days</div>
+                      <div className="text-sm text-[var(--muted-text)]">
+                        Daily production metrics with efficiency and WIP tracking over time.
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="chip">
+                        <div className="icon-trending-up text-xl text-white/90"></div>
+                        <span className="text-white/90">30-Day Trend</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                    <div className="h-80 flex items-center justify-center">
+                      <canvas ref={this.lineTrendRef} width="800" height="300"></canvas>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pie Charts Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Production Distribution Pie */}
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-green-400/50 transition-all duration-300">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <div className="icon-target text-lg text-green-400"></div>
+                      </div>
+                      <div className="text-white font-semibold">Production vs Target</div>
+                    </div>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.productionPieRef} width="250" height="300"></canvas>
+                    </div>
+                  </div>
+
+                  {/* Defect Reason Pie */}
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-red-400/50 transition-all duration-300">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <div className="icon-bug text-lg text-red-400"></div>
+                      </div>
+                      <div className="text-white font-semibold">Defect Reason</div>
+                    </div>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.defectPieRef} width="250" height="300"></canvas>
+                    </div>
+                  </div>
+
+                  {/* Line Performance Pie */}
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-blue-400/50 transition-all duration-300">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <div className="icon-gauge text-lg text-blue-400"></div>
+                      </div>
+                      <div className="text-white font-semibold">Line Efficiency %</div>
+                    </div>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.linePieRef} width="300" height="400"></canvas>
+                    </div>
+                  </div>
+
+                  {/* Shift Distribution Pie */}
+                  <div className="card p-6 hover-lift hover:outline hover:outline-2 hover:outline-purple-400/50 transition-all duration-300">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                        <div className="icon-clock text-lg text-purple-400"></div>
+                      </div>
+                      <div className="text-white font-semibold">Shift Distribution</div>
+                    </div>
+                    <div className="w-[500px] h-[600px] flex items-center justify-center">
+                      <canvas ref={this.shiftPieRef} width="300" height="400"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+
+              {/* Footer */}
+              <div className="mt-12 pb-10">
+                <div className="card px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover-outline">
+                  <div className="text-sm text-[var(--muted-text)]">
+                    <span className="text-white/90 font-medium">Hanger Line Apparel</span>
+                    <span className="mx-2">·</span>
+                    <span>Production Dashboard</span>
+                    <span className="mx-2">·</span>
+                    <span>© 2026</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="chip">
+                      <div className="icon-shield text-xl text-white/90"></div>
+                      <span className="text-white/90">Enterprise Dashboard</span>
+                    </span>
+                    <span className="chip">
+                      <div className="icon-refresh-cw text-xl text-white/90"></div>
+                      <span className="text-white/90">Real-time Data</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <AlertCenter items={toastItems} onDismiss={(id) => this.setState(prevState => ({
+              toastItems: prevState.toastItems.filter(t => t.id !== id)
+            }))} />
+          </div>
+        );
+      }
+    }
+
+    // Function to fetch and populate dropdown options
+    const fetchDropdownOptions = async (startDate, endDate) => {
+      try {
+        console.log('🔄 fetchDropdownOptions called with:', { startDate, endDate });
+
+        // Clear existing options (except "All")
+        const poSelect = document.getElementById('po-id-select');
+        const stSelect = document.getElementById('st-id-select');
+
+        console.log('🔍 DOM elements found:', {
+          poSelect: !!poSelect,
+          stSelect: !!stSelect,
+          poSelectId: poSelect?.id,
+          stSelectId: stSelect?.id
+        });
+
+        if (poSelect) {
+          // Keep only the "All" option
+          poSelect.innerHTML = '<option value="All">All</option>';
+          console.log('✅ PO select cleared, now has', poSelect.options.length, 'options');
+        }
+
+        if (stSelect) {
+          // Keep only the "All" option
+          stSelect.innerHTML = '<option value="All">All</option>';
+          console.log('✅ ST select cleared, now has', stSelect.options.length, 'options');
+        }
+
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        const queryString = params.toString();
+
+        console.log('🌐 API URLs:', {
+          poUrl: `http://localhost:3002/api/po-ids?${queryString}`,
+          stUrl: `http://localhost:3002/api/st-ids?${queryString}`
+        });
+
+        // Fetch PO IDs
+        const poResponse = await fetch(`http://localhost:3002/api/po-ids?${queryString}`);
+        console.log('📊 PO API response:', { status: poResponse.status, ok: poResponse.ok });
+
+        if (poResponse.ok) {
+          const poData = await poResponse.json();
+          console.log('📦 PO data received:', poData);
+
+          if (poSelect && poData.po_ids) {
+            poData.po_ids.forEach(poId => {
+              const option = document.createElement('option');
+              option.value = poId;
+              option.textContent = poId;
+              poSelect.appendChild(option);
+            });
+            console.log(`✅ Loaded ${poData.po_ids.length} PO ID options, total options:`, poSelect.options.length);
+          } else {
+            console.warn('⚠️ PO select not found or no po_ids in response');
+          }
+        } else {
+          console.error('❌ Failed to fetch PO IDs:', poResponse.status, await poResponse.text());
+        }
+
+        // Fetch ST IDs
+        const stResponse = await fetch(`http://localhost:3002/api/st-ids?${queryString}`);
+        console.log('📊 ST API response:', { status: stResponse.status, ok: stResponse.ok });
+
+        if (stResponse.ok) {
+          const stData = await stResponse.json();
+          console.log('🏷️ ST data received:', stData);
+
+          if (stSelect && stData.st_ids) {
+            stData.st_ids.forEach(stId => {
+              const option = document.createElement('option');
+              option.value = stId;
+              option.textContent = stId;
+              stSelect.appendChild(option);
+            });
+            console.log(`✅ Loaded ${stData.st_ids.length} ST ID options, total options:`, stSelect.options.length);
+          } else {
+            console.warn('⚠️ ST select not found or no st_ids in response');
+          }
+        } else {
+          console.error('❌ Failed to fetch ST IDs:', stResponse.status, await stResponse.text());
+        }
+
+        console.log('🎉 fetchDropdownOptions completed successfully');
+      } catch (error) {
+        console.error('💥 Error in fetchDropdownOptions:', error);
+      }
+    };
+
+    // Fetch initial dropdown options after component mounts
+    setTimeout(async () => {
+      console.log('🔄 Initializing dropdown options...');
+      try {
+        // Use a broader date range for initial load to ensure data exists
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+
+        const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
+        const endDate = today.toISOString().slice(0, 10);
+
+        console.log('📅 Initial load using date range:', { startDate, endDate });
+
+        await fetchDropdownOptions(startDate, endDate);
+        console.log('✅ Initial dropdown options loaded');
+      } catch (error) {
+        console.error('❌ Failed to load initial dropdown options:', error);
+      }
+    }, 3000); // Increased delay to ensure React is fully mounted
+
+    // Make fetchDropdownOptions available globally for date filter updates
+    window.fetchDropdownOptions = fetchDropdownOptions;
+
+    console.log('Rendering ProductionDashboard...');
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<ProductionDashboard />);
+    console.log('ProductionDashboard rendered successfully!');
+  </script>
+
+  <script>
+    console.log('Full React dashboard loaded');
+  </script>
+</body>
+</html>
