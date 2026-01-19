@@ -106,3 +106,5 @@ dmypy.json
 # Node modules
 node_modules/
 
+# Markdown files
+*.md
