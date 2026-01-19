@@ -19,7 +19,7 @@ const pool = new Pool({
 });
 
 app.use(cors({
-  origin: ['http://localhost:8000', 'http://127.0.0.1:8000', 'http://localhost:8001', 'http://127.0.0.1:8001', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: ['http://172.16.7.21:8000', 'http://127.0.0.1:8000', 'http://172.16.7.21:8001', 'http://127.0.0.1:8001', 'http://172.16.7.21:3000', 'http://127.0.0.1:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -399,7 +399,14 @@ app.get('/api/production-data', async (req, res) => {
       `, [startDate, endDate])
     ]);
 
-    // Process data (same logic as before)
+    // Process data with better error handling and data validation
+    console.log('📊 Processing query results...');
+    console.log('📊 Summary result rows:', summaryResult.rows.length);
+    console.log('📊 WIP result rows:', wipResult.rows.length);
+    console.log('📊 Defects result rows:', defectsResult.rows.length);
+    console.log('📊 Efficiency result rows:', efficiencyResult.rows.length);
+
+    // Process data (improved logic)
     const summaryData = summaryResult.rows.reduce((acc, row) => {
       const line = row.line || row.source_connection;
       if (!acc[line]) acc[line] = { line, loading: 0, offloading: 0, target: 0, shift: { day: 0, night: 0 } };
@@ -426,12 +433,16 @@ app.get('/api/production-data', async (req, res) => {
     const efficiencyData = efficiencyResult.rows.reduce((acc, row) => {
       const line = row.source_connection;
       if (!acc[line]) acc[line] = { efficiencies: [], empCount: 0 };
-      acc[line].efficiencies.push(parseFloat(row.efficiency_percent) || 0);
+      const effPercent = parseFloat(row.efficiency_percent);
+      if (!isNaN(effPercent)) {
+        acc[line].efficiencies.push(effPercent);
+      }
       acc[line].empCount = Math.max(acc[line].empCount, parseInt(row.emp_count) || 0);
       return acc;
     }, {});
 
     const allLines = [...new Set([...Object.keys(summaryData), ...Object.keys(wipData), ...Object.keys(efficiencyData)])];
+    console.log('📊 All lines found:', allLines);
 
     const lineRows = allLines.map(line => {
       const summary = summaryData[line] || {};
@@ -440,46 +451,73 @@ app.get('/api/production-data', async (req, res) => {
       const efficiency = efficiencyData[line] || { efficiencies: [], empCount: 0 };
       const avgEfficiency = efficiency.efficiencies.length > 0 ? efficiency.efficiencies.reduce((a, b) => a + b, 0) / efficiency.efficiencies.length : 0;
 
+      const offloading = summary.offloading || 0;
+      const target = summary.target || 0;
+      const variance = offloading - target;
+      const achievementPct = target > 0 ? (offloading / target) * 100 : 0;
+      const defectsCount = defects;
+      const defectsPct = offloading > 0 ? (defectsCount / offloading) * 100 : 0;
+      const attendancePct = efficiency.empCount > 0 ?
+        (((attendanceResult.rows[0] && attendanceResult.rows[0].present_employees) || 0) / efficiency.empCount) * 100 : 0;
+
       return {
         line,
-        loading: Math.round(summary.loading || wip.loading || 0),
-        offloading: Math.round(summary.offloading || wip.offloading || 0),
+        loading: Math.round(summary.loading || 0),
+        offloading: Math.round(offloading),
         wip: Math.round(wip.wip || 0),
-        target: Math.round(summary.target || 0),
-        achieved: Math.round(summary.offloading || wip.offloading || 0),
+        target: Math.round(target),
         efficiency: Math.round(avgEfficiency * 100) / 100,
-        breakdownMin: Math.round((breakdownResult.rows[0]?.duration_minutes || 0) / allLines.length),
-        defects: Math.round(defects),
-        shift: { day: Math.round(summary.shift?.day || 0), night: Math.round(summary.shift?.night || 0) },
-        workforce: {
-          activeEmployees: Math.round(efficiency.empCount || 0),
-          presentEmployees: Math.round((attendanceResult.rows[0]?.present_employees || 0) / allLines.length)
+        defects: Math.round(defectsCount),
+        breakdownMin: Math.round(((breakdownResult.rows[0] && breakdownResult.rows[0].duration_minutes) || 0) / allLines.length),
+        activeEmployees: Math.round(efficiency.empCount || 0),
+        presentEmployees: Math.round(((attendanceResult.rows[0] && attendanceResult.rows[0].present_employees) || 0) / allLines.length),
+        variance: Math.round(variance),
+        achievementPct: Math.round(achievementPct * 100) / 100,
+        defectsPct: Math.round(defectsPct * 100) / 100,
+        attendancePct: Math.round(attendancePct * 100) / 100,
+        variancePct: target > 0 ? Math.round((variance / target) * 100 * 100) / 100 : 0,
+        shift: {
+          day: Math.round((summary.shift && summary.shift.day) || 0),
+          night: Math.round((summary.shift && summary.shift.night) || 0)
         }
       };
     });
 
+    console.log('📊 Processed lineRows:', lineRows.length, 'lines');
+
     // Get total target from the single result row
-    const totalTargetFromModel = Math.round(totalTargetResult.rows[0]?.total_target || 0);
+    const totalTargetFromModel = Math.round((totalTargetResult.rows[0] && totalTargetResult.rows[0].total_target) || 0);
     console.log('🎯 Total target query result:', totalTargetResult.rows[0]);
     console.log('🎯 Total target calculated:', totalTargetFromModel);
 
+    const totalLoading = lineRows.reduce((sum, row) => sum + row.loading, 0);
+    const totalOffloading = lineRows.reduce((sum, row) => sum + row.offloading, 0);
+    const totalWip = lineRows.reduce((sum, row) => sum + row.wip, 0);
+    const totalDefects = lineRows.reduce((sum, row) => sum + row.defects, 0);
+    const avgEfficiency = lineRows.length > 0 ? lineRows.reduce((sum, row) => sum + row.efficiency, 0) / lineRows.length : 0;
+    const totalActiveEmployees = Math.round((attendanceResult.rows[0] && attendanceResult.rows[0].active_employees) || 0);
+    const totalPresentEmployees = Math.round((attendanceResult.rows[0] && attendanceResult.rows[0].present_employees) || 0);
+    const attendancePct = totalActiveEmployees > 0 ? (totalPresentEmployees / totalActiveEmployees) * 100 : 0;
+
     const summary = {
-      totalLoading: lineRows.reduce((sum, row) => sum + row.loading, 0),
-      totalOffloading: lineRows.reduce((sum, row) => sum + row.offloading, 0),
-      totalWip: lineRows.reduce((sum, row) => sum + row.wip, 0),
-      totalTarget: totalTargetFromModel, // Use direct LineTarget query result
-      defects: lineRows.reduce((sum, row) => sum + row.defects, 0),
-      variance: lineRows.reduce((sum, row) => sum + row.offloading, 0) - totalTargetFromModel,
-      breakdownTimeMin: Math.round(breakdownResult.rows[0]?.duration_minutes || 0),
-      efficiency: lineRows.length > 0 ? lineRows.reduce((sum, row) => sum + row.efficiency, 0) / lineRows.length : 0,
+      totalLoading,
+      totalOffloading,
+      totalWip,
+      totalTarget: totalTargetFromModel,
+      defects: totalDefects,
+      variance: totalOffloading - totalTargetFromModel,
+      breakdownTimeMin: Math.round((breakdownResult.rows[0] && breakdownResult.rows[0].duration_minutes) || 0),
+      efficiency: Math.round(avgEfficiency * 100) / 100,
       activeLines: allLines.length,
-      totalActiveEmployees: Math.round(attendanceResult.rows[0]?.active_employees || 0),
-      totalPresentEmployees: Math.round(attendanceResult.rows[0]?.present_employees || 0),
-      attendancePct: parseFloat(attendanceResult.rows[0]?.attendance_percent || 0)
+      totalActiveEmployees,
+      totalPresentEmployees,
+      attendancePct: Math.round(attendancePct * 100) / 100
     };
 
     summary.variancePct = summary.totalTarget > 0 ? Number(((summary.variance / summary.totalTarget) * 100).toFixed(2)) : 0;
     summary.achievementPct = summary.totalTarget > 0 ? Number(((summary.totalOffloading / summary.totalTarget) * 100).toFixed(2)) : 0;
+
+    console.log('📊 Final summary:', summary);
 
     const breakdownCategories = {
       cats: breakdownCategoryResult.rows.map((row, index) => ({
@@ -491,29 +529,37 @@ app.get('/api/production-data', async (req, res) => {
 
     const defectReasons = {
       reasons: defectReasonsResult.rows.map((row, index) => ({
-        name: row.reason,
+        name: row.reason || 'Unknown',
         color: ['rgba(239,68,68,.85)', 'rgba(245,158,11,.85)', 'rgba(14,165,233,.85)', 'rgba(34,197,94,.85)', 'rgba(148,163,184,.75)'][index % 5]
       })),
       values: defectReasonsResult.rows.map(row => Math.round(row.quantity || 0))
     };
 
-    res.json({
-      lines: allLines,
+    const responseData = {
+      summary,
       lineRows,
-      summary: {
-        ...summary,
-        _debug: {
-          totalTargetQuery: {
-            entries_found: totalTargetResult.rows.length,
-            total_target_sum: totalTargetFromModel,
-            target_entries: totalTargetResult.rows.slice(0, 10), // Show first 10 entries
-            available_dates: availableDatesResult.rows.slice(0, 10) // Show dates with targets
-          }
-        }
-      },
       breakdownCategories,
-      defectReasons
+      defectReasons,
+      _debug: {
+        totalTargetQuery: {
+          entries_found: totalTargetResult.rows.length,
+          total_target_sum: totalTargetFromModel,
+          target_entries: totalTargetResult.rows.slice(0, 10),
+          available_dates: availableDatesResult.rows.slice(0, 10)
+        },
+        lineCount: lineRows.length,
+        dataProcessed: true
+      }
+    };
+
+    console.log('📤 Sending response with summary totals:', {
+      totalLoading: summary.totalLoading,
+      totalOffloading: summary.totalOffloading,
+      totalTarget: summary.totalTarget,
+      lineCount: lineRows.length
     });
+
+    res.json(responseData);
 
   } catch (error) {
     console.error('❌ Direct PostgreSQL query error:', error);

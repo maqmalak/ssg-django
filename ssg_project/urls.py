@@ -32,51 +32,85 @@ def dashboard_view(request):
     from django.http import JsonResponse
     import json
     from hangerline.models import OperatorDailyPerformance, Breakdown, LineTarget
+    import logging
+
+    logger = logging.getLogger(__name__)
 
     # Check if this is an AJAX request for filtered data
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return get_dashboard_data_api(request)
 
-    # Get date filters from request (for initial page load)
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-    line_filter = request.GET.get('line')
-    shift_filter = request.GET.get('shift')
-
-    # Default to current month if no dates provided
-    if not start_date or not end_date:
-        today = date.today()
-        start_date = date(today.year, today.month, 1)
-        end_date = date(today.year, today.month + 1, 1) if today.month < 12 else date(today.year + 1, 1, 1)
-    else:
-        start_date = date.fromisoformat(start_date)
-        end_date = date.fromisoformat(end_date)
-
-    # Get data for initial page load
-    dashboard_data = get_dashboard_data(start_date, end_date, line_filter, shift_filter)
-
-    # Pass data to template as JSON
-    from django.http import HttpResponse
-    import os
-
-    # Read the raw HTML file
-    template_path = os.path.join(settings.BASE_DIR, 'hangerline', 'templates', 'admin', 'hangerline', 'dashboard.html')
     try:
-        with open(template_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
+        # Get date filters from request (for initial page load)
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        line_filter = request.GET.get('line')
+        shift_filter = request.GET.get('shift')
 
-        # Inject data into the HTML by adding a script tag
-        dashboard_data_json = json.dumps(dashboard_data)
-        data_script = f'<script>window.data = {dashboard_data_json};</script>'
+        logger.info(f"Dashboard view called with params: start_date={start_date}, end_date={end_date}, line={line_filter}, shift={shift_filter}")
 
-        # Insert the data script before the closing </head> tag
-        html_content = html_content.replace('</head>', f'{data_script}</head>')
+        # Default to current month if no dates provided
+        if not start_date or not end_date:
+            today = date.today()
+            start_date = date(today.year, today.month, 1)
+            end_date = date(today.year, today.month + 1, 1) if today.month < 12 else date(today.year + 1, 1, 1)
+            logger.info(f"Using default date range: {start_date} to {end_date}")
+        else:
+            start_date = date.fromisoformat(start_date)
+            end_date = date.fromisoformat(end_date)
+            logger.info(f"Using provided date range: {start_date} to {end_date}")
 
-        return HttpResponse(html_content, content_type='text/html')
-    except FileNotFoundError:
-        return HttpResponse("Dashboard template not found", status=404)
+        # Get data for initial page load
+        logger.info("Calling get_dashboard_data...")
+        dashboard_data = get_dashboard_data(start_date, end_date, line_filter, shift_filter)
+        logger.info(f"Dashboard data retrieved, keys: {list(dashboard_data.keys()) if dashboard_data else 'None'}")
+
+        # Pass data to template as JSON
+        from django.http import HttpResponse
+        import os
+
+        # Read the raw HTML file
+        template_path = os.path.join(settings.BASE_DIR, 'hangerline', 'templates', 'admin', 'hangerline', 'dashboard.html')
+        logger.info(f"Looking for template at: {template_path}")
+
+        if not os.path.exists(template_path):
+            logger.error(f"Template file does not exist: {template_path}")
+            return HttpResponse(f"Dashboard template not found at {template_path}", status=404)
+
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+
+            logger.info(f"Template file read successfully, length: {len(html_content)}")
+
+            # Inject data into the HTML by adding a script tag
+            dashboard_data_json = json.dumps(dashboard_data, default=str)
+            data_script = f'<script>window.data = {dashboard_data_json};</script>'
+
+            # Insert the data script before the closing </head> tag
+            if '</head>' in html_content:
+                html_content = html_content.replace('</head>', f'{data_script}</head>')
+                logger.info("Data script injected successfully")
+            else:
+                logger.warning("Could not find </head> tag in template, appending data script at end")
+                html_content += data_script
+
+            logger.info("Dashboard view completed successfully")
+            return HttpResponse(html_content, content_type='text/html')
+
+        except FileNotFoundError as e:
+            logger.error(f"FileNotFoundError reading template: {e}")
+            return HttpResponse(f"Dashboard template not found: {e}", status=404)
+        except json.JSONEncodeError as e:
+            logger.error(f"JSON encoding error: {e}")
+            return HttpResponse(f"Dashboard data serialization error: {e}", status=500)
+        except Exception as e:
+            logger.error(f"Unexpected error in dashboard_view: {e}", exc_info=True)
+            return HttpResponse(f"Dashboard error: {str(e)}", status=500)
+
     except Exception as e:
-        return HttpResponse(f"Dashboard error: {str(e)}", status=500)
+        logger.error(f"Unexpected error in dashboard_view outer try: {e}", exc_info=True)
+        return HttpResponse(f"Dashboard initialization error: {str(e)}", status=500)
 
 def get_dashboard_data_api(request):
     """API endpoint for filtered dashboard data"""

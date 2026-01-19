@@ -477,7 +477,7 @@ def get_dashboard_data(start_date, end_date, line_filter=None, shift_filter=None
           AND source_connection = ANY(%s)
           AND shift = ANY(%s)
         GROUP BY shift, em_description, qcsc_description, source_connection
-        ORDER source_connection
+        ORDER BY source_connection
         """
 
         try:

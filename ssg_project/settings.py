@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-tn=prldh6$jh45-%bc(w@umhdtah4+8ly@=7pvte_6ulm^dya0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']  # Allow all hosts for development (configure properly for production)
+ALLOWED_HOSTS = ['*', '172.16.7.21', 'localhost', '127.0.0.1']  # Allow all hosts plus specific IPs for development
 
 
 # Application definition
@@ -129,6 +129,7 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -140,9 +141,9 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
 
 # CORS settings for React frontend
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React development server
+    "http://172.16.7.21:3000",  # React development server
     "http://127.0.0.1:3000",
-    "http://localhost:3001",
+    "http://172.16.7.21:3001",
     "http://127.0.0.1:3001",
 ]
 

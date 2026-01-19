@@ -673,7 +673,7 @@
         if (filters.po_id && filters.po_id !== 'All') params.append('po_id', filters.po_id);
         if (filters.st_id && filters.st_id !== 'All') params.append('st_id', filters.st_id);
 
-        const apiUrl = `http://localhost:3002/api/production-data?${params.toString()}`;
+        const apiUrl = `http://172.16.7.21:3002/api/production-data?${params.toString()}`;
         console.log('Fetching from API:', apiUrl);
 
         const response = await fetch(apiUrl);
@@ -878,14 +878,14 @@
         if (endDate) params.append('end_date', endDate);
 
         // Load PO IDs
-        const poResponse = await fetch(`http://localhost:3002/api/po-ids?${params.toString()}`);
+        const poResponse = await fetch(`http://172.16.7.21:3002/api/po-ids?${params.toString()}`);
         if (poResponse.ok) {
           const poData = await poResponse.json();
           updateSelectOptions('po-filter', poData.po_ids || []);
         }
 
         // Load ST IDs
-        const stResponse = await fetch(`http://localhost:3002/api/st-ids?${params.toString()}`);
+        const stResponse = await fetch(`http://172.16.7.21:3002/api/st-ids?${params.toString()}`);
         if (stResponse.ok) {
           const stData = await stResponse.json();
           updateSelectOptions('st-filter', stData.st_ids || []);

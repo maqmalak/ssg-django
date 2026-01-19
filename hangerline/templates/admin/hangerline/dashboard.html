@@ -789,6 +789,245 @@
         };
       }
 
+  getFilteredMockData = (filters) => {
+    console.log('Generating filtered mock data based on filters:', filters);
+
+    // Base mock data
+    const baseData = this.getFallbackData();
+
+    // Apply line filter
+    let filteredLines = baseData.lineComparisonRows || [];
+    if (filters.line && filters.line !== 'All') {
+      filteredLines = filteredLines.filter(row => row.line === filters.line);
+    }
+
+    // Apply shift filter
+    if (filters.shift && filters.shift !== 'All') {
+      // For mock data, we'll simulate shift filtering by adjusting numbers
+      const shiftMultiplier = filters.shift === 'Day' ? 0.6 : 0.4; // Day shift typically higher
+      filteredLines = filteredLines.map(row => ({
+        ...row,
+        loading: Math.round(row.loading * shiftMultiplier),
+        offloading: Math.round(row.offloading * shiftMultiplier),
+        wip: Math.round(row.wip * shiftMultiplier),
+        target: Math.round(row.target * shiftMultiplier)
+      }));
+    }
+
+    // Recalculate totals based on filtered data
+    const totalLoading = filteredLines.reduce((sum, row) => sum + row.loading, 0);
+    const totalOffloading = filteredLines.reduce((sum, row) => sum + row.offloading, 0);
+    const totalWip = filteredLines.reduce((sum, row) => sum + row.wip, 0);
+    const totalTarget = filteredLines.reduce((sum, row) => sum + row.target, 0);
+
+    // Update summary with filtered totals
+    const filteredSummary = {
+      ...baseData.summary,
+      totalLoading,
+      totalOffloading,
+      totalWip,
+      totalTarget,
+      variance: totalOffloading - totalTarget,
+      achievementPct: totalTarget > 0 ? Number(((totalOffloading / totalTarget) * 100).toFixed(2)) : 0,
+      variancePct: totalTarget > 0 ? Number(((totalOffloading - totalTarget) / totalTarget * 100).toFixed(2)) : 0
+    };
+
+    return {
+      summary: filteredSummary,
+      summaryCards: this.generateSummaryCards(filteredSummary),
+      lineComparisonRows: filteredLines,
+      pieCharts: this.generateMockPieCharts(filteredSummary, filteredLines)
+    };
+  }
+
+  generateMockTrendData = () => {
+    console.log('Generating mock trend data for 30 days');
+    const trendData = [];
+    const today = new Date();
+
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const baseValue = 1500 + Math.random() * 500; // Base production around 1500-2000
+      trendData.push({
+        date: date.toISOString().split('T')[0],
+        loading: Math.round(baseValue + Math.random() * 200),
+        offloading: Math.round(baseValue * 0.9 + Math.random() * 100),
+        efficiency: Math.round(85 + Math.random() * 15), // 85-100% efficiency
+        wip: Math.round(baseValue * 0.1 + Math.random() * 50)
+      });
+    }
+
+    return trendData;
+  }
+
+  generateSummaryCards = (summary) => {
+    return [
+      {
+        key: 'loading',
+        title: 'Total Loading',
+        value: (summary.totalLoading || 0).toLocaleString(),
+        iconClass: 'icon-boxes',
+        tone: 'neutral',
+        footnote: 'Pieces loaded'
+      },
+      {
+        key: 'offloading',
+        title: 'Total Offloading',
+        value: (summary.totalOffloading || 0).toLocaleString(),
+        iconClass: 'icon-package-check',
+        tone: 'neutral',
+        footnote: 'Pieces offloaded'
+      },
+      {
+        key: 'wip',
+        title: 'Total WIP',
+        value: (summary.totalWip || 0).toLocaleString(),
+        iconClass: 'icon-box',
+        tone: summary.totalWip > 60 ? 'warning' : 'neutral',
+        footnote: 'Work in progress'
+      },
+      {
+        key: 'target',
+        title: 'Total Target',
+        value: (summary.totalTarget || 0).toLocaleString(),
+        iconClass: 'icon-target',
+        tone: 'neutral',
+        footnote: 'Planned output'
+      },
+      {
+        key: 'variance',
+        title: 'Variance',
+        value: `${summary.variance >= 0 ? '+' : ''}${(summary.variance || 0).toLocaleString()} / ${summary.variancePct >= 0 ? '+' : ''}${(summary.variancePct || 0).toFixed(2)}%`,
+        iconClass: 'icon-trending-up',
+        tone: (summary.variance || 0) >= 0 ? 'positive' : 'negative',
+        footnote: 'Actual vs target'
+      },
+      {
+        key: 'achievement',
+        title: 'Achievement %',
+        value: `${Number(summary.achievementPct || 0).toFixed(2)}%`,
+        iconClass: 'icon-award',
+        tone: (summary.achievementPct || 0) >= 100 ? 'positive' : 'neutral',
+        footnote: 'Attainment'
+      },
+      {
+        key: 'efficiency',
+        title: 'Efficiency',
+        value: `${Number(summary.efficiency || 98.0).toFixed(2)}%`,
+        iconClass: 'icon-gauge',
+        tone: (summary.efficiency || 0) >= 98 ? 'positive' : (summary.efficiency || 0) >= 95 ? 'neutral' : 'warning',
+        footnote: 'Average line efficiency'
+      },
+      {
+        key: 'attendance',
+        title: 'Attendance %',
+        value: `${summary.attendancePct || 94.1}%`,
+        iconClass: 'icon-users',
+        tone: (summary.attendancePct || 0) >= 95 ? 'positive' : (summary.attendancePct || 0) >= 90 ? 'neutral' : 'warning',
+        footnote: 'Present vs active'
+      },
+      {
+        key: 'breakdown',
+        title: 'Breakdown Time',
+        value: `${summary.breakdownTimeMin || 0} min`,
+        iconClass: 'icon-clock-alert',
+        tone: 'neutral',
+        footnote: 'Downtime minutes'
+      },
+      {
+        key: 'defects',
+        title: 'Total Defects',
+        value: (summary.defects || 0).toLocaleString(),
+        iconClass: 'icon-bug',
+        tone: 'neutral',
+        footnote: 'Quality issues'
+      },
+      {
+        key: 'lines',
+        title: 'Active Lines',
+        value: String(summary.activeLines || 12),
+        iconClass: 'icon-factory',
+        tone: 'neutral',
+        footnote: 'Running lines'
+      },
+      {
+        key: 'workforce',
+        title: 'Total Workforce',
+        value: (summary.totalActiveEmployees || 0).toLocaleString(),
+        iconClass: 'icon-users',
+        tone: 'neutral',
+        footnote: 'Active employees'
+      }
+    ];
+  }
+
+  generateMockPieCharts = (summary, lineRows) => {
+    const pieCharts = {};
+
+    // Production vs Target Distribution
+    if (summary.totalTarget > 0 && summary.totalOffloading > 0) {
+      const targetValue = summary.totalTarget;
+      const actualValue = summary.totalOffloading;
+      const varianceValue = Math.max(0, targetValue - actualValue);
+
+      pieCharts.productionDistribution = [
+        { label: 'Target', value: targetValue, color: 'rgba(34,197,94,.8)' },
+        { label: 'Actual', value: actualValue, color: 'rgba(14,165,233,.8)' }
+      ];
+
+      if (varianceValue > 0) {
+        pieCharts.productionDistribution.push(
+          { label: 'Variance', value: varianceValue, color: 'rgba(245,158,11,.8)' }
+        );
+      }
+    }
+
+    // Defect Reasons (mock data)
+    pieCharts.defectBreakdown = [
+      { label: 'Stitching Error', value: Math.round((summary.defects || 0) * 0.4), color: 'rgba(239,68,68,.8)' },
+      { label: 'Fabric Defect', value: Math.round((summary.defects || 0) * 0.3), color: 'rgba(245,158,11,.8)' },
+      { label: 'Size Issue', value: Math.round((summary.defects || 0) * 0.2), color: 'rgba(14,165,233,.8)' },
+      { label: 'Other', value: Math.round((summary.defects || 0) * 0.1), color: 'rgba(34,197,94,.8)' }
+    ].filter(item => item.value > 0);
+
+    // Line Performance (based on efficiency from lineRows)
+    if (lineRows && lineRows.length > 0) {
+      const lineColors = [
+        'rgba(14,165,233,.8)',  // blue-500
+        'rgba(34,197,94,.8)',   // green-500
+        'rgba(245,158,11,.8)',  // amber-500
+        'rgba(239,68,68,.8)',   // red-500
+        'rgba(147,51,234,.8)',  // violet-500
+        'rgba(236,72,153,.8)',  // pink-500
+        'rgba(6,182,212,.8)',   // cyan-500
+        'rgba(16,185,129,.8)'   // emerald-500
+      ];
+
+      // Sort lines by efficiency and take top 8
+      const topLines = lineRows
+        .sort((a, b) => (b.efficiency || 0) - (a.efficiency || 0))
+        .slice(0, 8);
+
+      pieCharts.linePerformance = topLines.map((line, index) => ({
+        label: line.line || `Line ${index + 1}`,
+        value: line.efficiency || 0,
+        color: lineColors[index % lineColors.length]
+      })).filter(item => item.value > 0);
+    }
+
+    // Shift Distribution (mock data)
+    const dayShift = Math.round(summary.totalOffloading * 0.6);
+    const nightShift = Math.round(summary.totalOffloading * 0.4);
+
+    pieCharts.shiftDistribution = [
+      { label: 'Day', value: dayShift, color: 'rgba(251,191,36,.8)' },
+      { label: 'Night', value: nightShift, color: 'rgba(99,102,241,.8)' }
+    ].filter(item => item.value > 0);
+
+    return pieCharts;
+  }
+
   componentDidMount() {
     console.log('ProductionDashboard mounted successfully with data:', this.state.dataBundle);
     // Automatically apply current date filters on load
@@ -1463,7 +1702,7 @@
           if (filters.st_id && filters.st_id !== 'All') params.append('st_id', filters.st_id);
 
           const queryString = params.toString();
-          const apiUrl = `http://localhost:3002/api/production-data?${queryString}`;
+          const apiUrl = `http://172.16.7.21:3002/api/production-data?${queryString}`;
 
           // Build trend query - same filters but always 30 days
           const trendParams = new URLSearchParams();
@@ -1474,7 +1713,7 @@
           if (filters.st_id && filters.st_id !== 'All') trendParams.append('st_id', filters.st_id);
 
           const trendQueryString = trendParams.toString();
-          const trendApiUrl = `http://localhost:3002/api/production-trend?${trendQueryString}`;
+          const trendApiUrl = `http://172.16.7.21:3002/api/production-trend?${trendQueryString}`;
 
           console.log('🌐 Fetching from PostgreSQL API URL:', apiUrl);
           console.log('📈 Fetching 30-day trend data from:', trendApiUrl);
@@ -1488,6 +1727,9 @@
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
               },
+            }).catch(err => {
+              console.warn('❌ Production data API fetch failed:', err.message);
+              return null;
             }),
             fetch(trendApiUrl, {
               method: 'GET',
@@ -1495,56 +1737,95 @@
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
               },
+            }).catch(err => {
+              console.warn('⚠️ Trend data API fetch failed:', err.message);
+              return null;
             })
           ]);
 
-          console.log('📊 Production data response status:', response.status);
-          console.log('📊 Trend data response status:', trendResponse.status);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ HTTP Error response:', errorText);
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          const apiData = await response.json();
-          console.log('📄 Received PostgreSQL API response:', apiData);
-
-          // Check if response contains error
-          if (apiData.error) {
-            throw new Error(apiData.error);
-          }
-
-          // Parse trend data
+          let apiData = null;
           let trendData = [];
-          if (trendResponse.ok) {
+
+          // Check if production data API responded
+          if (response && response.ok) {
+            console.log('📊 Production data response status:', response.status);
+            apiData = await response.json();
+            console.log('📄 Received PostgreSQL API response:', apiData);
+
+            // Check if response contains error
+            if (apiData.error) {
+              throw new Error(apiData.error);
+            }
+          } else {
+            console.warn('❌ Production data API unavailable, using mock data');
+            // Don't throw error, continue with mock data
+          }
+
+          // Check if trend data API responded
+          if (trendResponse && trendResponse.ok) {
             const trendApiData = await trendResponse.json();
             console.log('📈 Received trend API response:', trendApiData);
             trendData = trendApiData.trendData || [];
             console.log(`✅ Loaded ${trendData.length} days of trend data`);
           } else {
-            console.warn('⚠️ Trend data fetch failed, chart will use mock data');
+            console.warn('⚠️ Trend data API unavailable, using mock data');
           }
 
-          // Transform PostgreSQL API response to dashboard format
-          const transformedData = this.transformApiResponse(apiData);
-          
-          // Add trend data to the bundle
-          transformedData.lineTrendData = trendData;
+          let transformedData;
 
-          console.log('✅ Successfully transformed data for dashboard with trend data');
+          if (apiData) {
+            // Transform PostgreSQL API response to dashboard format
+            transformedData = this.transformApiResponse(apiData);
+            console.log('✅ Successfully transformed API data for dashboard');
+          } else {
+            // Use enhanced mock data with applied filters
+            transformedData = this.getFilteredMockData(filters);
+            console.log('📊 Using enhanced mock data with filters applied');
+          }
+
+          // Add trend data to the bundle
+          transformedData.lineTrendData = trendData.length > 0 ? trendData : this.generateMockTrendData();
+
+          // Mark data source for UI feedback
+          transformedData.dataSource = apiData ? 'live' : 'offline';
+
           this.setState({ dataBundle: transformedData, loading: false });
           return transformedData;
 
         } catch (error) {
           console.error('💥 Error in fetchFilteredData:', error);
           console.error('💥 Error stack:', error.stack);
-          this.addToast({
-            type: 'error',
-            title: 'Filter Error',
-            message: `Failed to apply filters: ${error.message}`
-          });
-          throw error;
+
+          // For network/server errors, use mock data instead of failing completely
+          if (error.message.includes('fetch') || error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+            console.log('🌐 Network error detected, switching to offline mode with mock data');
+            const mockData = this.getFilteredMockData(filters);
+            mockData.lineTrendData = this.generateMockTrendData();
+            mockData.dataSource = 'offline';
+
+            this.setState({ dataBundle: mockData, loading: false });
+
+            this.addToast({
+              type: 'warning',
+              title: 'Offline Mode',
+              message: 'Database server unavailable. Showing sample data for demonstration. Please check server connection.'
+            });
+
+            return mockData;
+          } else {
+            // For other errors (data processing, etc.), show error but don't crash
+            this.addToast({
+              type: 'error',
+              title: 'Data Processing Error',
+              message: `Unable to process dashboard data: ${error.message}`
+            });
+
+            // Fall back to basic mock data
+            const fallbackData = this.getFallbackData();
+            fallbackData.dataSource = 'error';
+            this.setState({ dataBundle: fallbackData, loading: false });
+            return fallbackData;
+          }
         }
       }
 
@@ -2119,7 +2400,7 @@
         const queryString = params.toString();
 
         // Fetch PO IDs
-        const poResponse = await fetch(`http://localhost:3002/api/po-ids?${queryString}`);
+        const poResponse = await fetch(`http://172.16.7.21:3002/api/po-ids?${queryString}`);
         if (poResponse.ok) {
           const poData = await poResponse.json();
           if (poSelect && poData.po_ids) {
@@ -2136,7 +2417,7 @@
         }
 
         // Fetch ST IDs
-        const stResponse = await fetch(`http://localhost:3002/api/st-ids?${queryString}`);
+        const stResponse = await fetch(`http://172.16.7.21:3002/api/st-ids?${queryString}`);
         if (stResponse.ok) {
           const stData = await stResponse.json();
           if (stSelect && stData.st_ids) {
