@@ -1,0 +1,129 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+{% load static %}
+
+{% block title %}Bulk Generate Line Targets{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Home</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label='hangerline' %}">Hangerline</a>
+&rsaquo; <a href="{% url 'admin:hangerline_linetarget_changelist' %}">Line targets</a>
+&rsaquo; Bulk Generate
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h1>Bulk Generate Line Targets</h1>
+
+        <div style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+            <h3 style="margin-top: 0; color: #007bff;">📋 Instructions</h3>
+            <ul style="margin: 0; padding-left: 20px;">
+                <li>Select a production line</li>
+                <li>Choose a date range (from date to to date)</li>
+                <li>Enter total target quantity (must be even, divisible by 2)</li>
+                <li>The system will create 2 records per date (Day & Night shifts) with target_qty/2 each</li>
+                <li>Existing records for the same line/date/shift will be skipped</li>
+            </ul>
+        </div>
+
+        <form method="post" style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+            {% csrf_token %}
+
+            <div style="margin-bottom: 20px;">
+                <label for="line" style="display: block; font-weight: bold; margin-bottom: 5px;">Production Line:</label>
+                <select name="line" id="line" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    <option value="">-- Select Line --</option>
+                    {% for value, display in line_choices %}
+                        <option value="{{ value }}">{{ display }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                <div style="flex: 1;">
+                    <label for="fromdate" style="display: block; font-weight: bold; margin-bottom: 5px;">From Date:</label>
+                    <input type="date" name="fromdate" id="fromdate" required
+                           style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div style="flex: 1;">
+                    <label for="todate" style="display: block; font-weight: bold; margin-bottom: 5px;">To Date:</label>
+                    <input type="date" name="todate" id="todate" required
+                           style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <label for="target_qty" style="display: block; font-weight: bold; margin-bottom: 5px;">Total Target Quantity:</label>
+                <input type="number" name="target_qty" id="target_qty" required min="2" step="2"
+                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    Must be even number (divisible by 2). Each date will get 2 records with target_qty/2 each.
+                </small>
+            </div>
+
+            <div style="border-top: 1px solid #eee; padding-top: 20px;">
+                <button type="submit" style="background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer;">
+                    🚀 Generate Line Targets
+                </button>
+                <a href="{% url 'admin:hangerline_linetarget_changelist' %}" style="margin-left: 10px; color: #6c757d; text-decoration: none;">
+                    Cancel
+                </a>
+            </div>
+        </form>
+
+        <div style="margin-top: 30px; padding: 20px; background: #e9ecef; border-radius: 8px;">
+            <h3 style="margin-top: 0; color: #495057;">💡 Example</h3>
+            <p style="margin: 0; color: #6c757d;">
+                If you select line "line-21", date range from "2024-01-01" to "2024-01-03", and target quantity "200":<br>
+                The system will create 6 records (3 dates × 2 shifts each) with 100 target quantity each.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Set default dates to current month
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    const fromdateInput = document.getElementById('fromdate');
+    const todateInput = document.getElementById('todate');
+
+    // Format dates as YYYY-MM-DD
+    fromdateInput.value = firstDay.toISOString().split('T')[0];
+    todateInput.value = lastDay.toISOString().split('T')[0];
+});
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const fromdate = new Date(document.getElementById('fromdate').value);
+    const todate = new Date(document.getElementById('todate').value);
+    const targetQty = parseInt(document.getElementById('target_qty').value);
+
+    if (fromdate > todate) {
+        alert('From date cannot be after to date.');
+        e.preventDefault();
+        return false;
+    }
+
+    if (targetQty <= 0) {
+        alert('Target quantity must be positive.');
+        e.preventDefault();
+        return false;
+    }
+
+    if (targetQty % 2 !== 0) {
+        alert('Target quantity must be even (divisible by 2).');
+        e.preventDefault();
+        return false;
+    }
+
+    return confirm(`Generate targets for ${Math.ceil((todate - fromdate) / (1000 * 60 * 60 * 24)) + 1} days × 2 shifts = ${2 * (Math.ceil((todate - fromdate) / (1000 * 60 * 60 * 24)) + 1)} records?`);
+});
+</script>
+{% endblock %}

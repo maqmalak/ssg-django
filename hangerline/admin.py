@@ -1111,11 +1111,12 @@ class LineTargetDetailInline(admin.TabularInline):
 
 @admin.register(LineTarget)
 class LineTargetAdmin(admin.ModelAdmin):
-    list_display = ('source_connection', 'target_date', 'total_target_qty', 'loading_qty', 'remarks')
-    list_filter = ('source_connection', 'target_date')
+    list_display = ('source_connection', 'target_date', 'shift', 'total_target_qty', 'loading_qty', 'remarks')
+    list_filter = ('source_connection', 'target_date', 'shift')
     search_fields = ('source_connection', 'target_date')
-    ordering = ('-target_date', 'source_connection')
+    ordering = ('-target_date', 'source_connection', 'shift')
     inlines = [LineTargetDetailInline]
+    change_list_template = 'admin/hangerline/linetarget/change_list.html'
 
     def get_urls(self):
         from django.urls import path
@@ -1123,6 +1124,7 @@ class LineTargetAdmin(admin.ModelAdmin):
         custom_urls = [
             path('<int:pk>/fetch-loading-data/', self.fetch_loading_data, name='linetarget_fetch_loading_data'),
             path('dashboard/', self.dashboard_view, name='linetarget_dashboard'),
+            path('bulk-generate/', self.bulk_generate_view, name='linetarget_bulk_generate'),
         ]
         return custom_urls + urls
 
@@ -1132,32 +1134,86 @@ class LineTargetAdmin(admin.ModelAdmin):
         from django.shortcuts import render
         from datetime import datetime, date
 
-        # Get current month's data
-        today = date.today()
-        current_month = today.replace(day=1)
-        next_month = date(today.year + (1 if today.month == 12 else 0), (today.month % 12) + 1, 1)
+        # Get date range from request parameters
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
 
-        # Aggregate LineTarget data
+        # Parse dates or use current month as default
+        if start_date_str:
+            try:
+                start_date = date.fromisoformat(start_date_str)
+            except ValueError:
+                start_date = None
+        else:
+            start_date = None
+
+        if end_date_str:
+            try:
+                end_date = date.fromisoformat(end_date_str)
+            except ValueError:
+                end_date = None
+        else:
+            end_date = None
+
+        # Default to current month if no dates provided
+        if not start_date or not end_date:
+            today = date.today()
+            current_month = today.replace(day=1)
+            next_month = date(today.year + (1 if today.month == 12 else 0), (today.month % 12) + 1, 1)
+            start_date = current_month
+            end_date = next_month
+        else:
+            # For display purposes, use the start date's month
+            current_month = start_date.replace(day=1)
+
+        # Aggregate LineTarget data for the date range
         line_targets = LineTarget.objects.filter(
-            target_date__gte=current_month,
-            target_date__lte=next_month
-        )
+            target_date__gte=start_date,
+            target_date__lte=end_date
+        ).select_related()
 
         total_targets = line_targets.aggregate(
             total_qty=Sum('total_target_qty'),
-            total_lines=Count('source_connection')
+            total_lines=Count('source_connection', distinct=True)
         )
 
-        # Get actual offloading data for comparison
+        # Get actual offloading data for the date range
         actual_offloading = OperatorDailyPerformance.objects.filter(
-            odp_date__gte=current_month,
-            odp_date__lte=next_month
+            odp_date__gte=start_date,
+            odp_date__lte=end_date
         ).aggregate(
             total_offloading=Sum('unloading_qty'),
             total_loading=Sum('loading_qty')
         )
 
-        # Calculate variances
+        # Calculate line-wise performance data
+        line_performance = []
+        for line_target in line_targets:
+            # Get actual offloading for this specific line, date, and shift
+            actual_qty = OperatorDailyPerformance.objects.filter(
+                source_connection=line_target.source_connection,
+                odp_date=line_target.target_date,
+                shift=line_target.shift
+            ).aggregate(
+                total=Sum('unloading_qty')
+            )['total'] or 0
+
+            # Calculate variance and achievement percentage
+            target_qty = line_target.total_target_qty or 0
+            variance = target_qty - actual_qty
+            achievement_percent = round((actual_qty / target_qty * 100), 1) if target_qty > 0 else 0
+
+            line_performance.append({
+                'line': line_target.source_connection,
+                'date': line_target.target_date,
+                'shift': line_target.shift,
+                'target_qty': target_qty,
+                'actual_qty': actual_qty,
+                'variance': variance,
+                'achievement_percent': achievement_percent,
+            })
+
+        # Calculate overall variances
         target_qty = total_targets['total_qty'] or 0
         offloading_qty = actual_offloading['total_offloading'] or 0
         variance = target_qty - offloading_qty
@@ -1170,34 +1226,131 @@ class LineTargetAdmin(admin.ModelAdmin):
             'variance': variance,
             'variance_percent': round(variance_percent, 2),
             'current_month': current_month.strftime('%B %Y'),
-            'line_targets': line_targets,
+            'line_performance': line_performance,
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
             'has_permission': True,  # Default to True for dashboard access
         }
 
         return render(request, 'admin/hangerline/linetarget/dashboard.html', context)
 
-    # def changelist_view(self, request, extra_context=None):
-    #     """Override changelist view to add dashboard links"""
-    #     extra_context = extra_context or {}
-    #     extra_context.update({
-    #         'dashboard_links': [
-    #             {
-    #                 'title': '🏭 Production Dashboard',
-    #                 'url': '/dashboard/',
-    #                 'description': 'Complete Django production analytics with charts'
-    #             },
-    #             {
-    #                 'title': '⚛️ React Dashboard',
-    #                 'url': '/production-dashboard/',
-    #                 'description': 'Modern React interface (experimental)'
-    #             },
-    #             {
-    #                 'title': '🔧 Breakdown Dashboard',
-    #                 'url': '/breakdown-dashboard/',
-    #                 'description': 'Breakdown analysis and charts'
-    #             }
-    #         ]
-    #     })
+    def bulk_generate_view(self, request):
+        """Bulk generate LineTarget records for date range"""
+        from django.shortcuts import render, redirect
+        from django.contrib import messages
+        from datetime import datetime, timedelta, date
+        from .models import LineTarget
+
+        if request.method == 'POST':
+            # Get form data
+            line = request.POST.get('line')
+            fromdate_str = request.POST.get('fromdate')
+            todate_str = request.POST.get('todate')
+            target_qty = request.POST.get('target_qty')
+
+            try:
+                # Parse dates
+                fromdate = datetime.strptime(fromdate_str, '%Y-%m-%d').date()
+                todate = datetime.strptime(todate_str, '%Y-%m-%d').date()
+                target_qty = int(target_qty)
+
+                # Validate inputs
+                if fromdate > todate:
+                    messages.error(request, "From date cannot be after to date.")
+                    return redirect('admin:linetarget_bulk_generate')
+
+                if target_qty <= 0:
+                    messages.error(request, "Target quantity must be positive.")
+                    return redirect('admin:linetarget_bulk_generate')
+
+                if target_qty % 2 != 0:
+                    messages.error(request, "Target quantity must be even (divisible by 2).")
+                    return redirect('admin:linetarget_bulk_generate')
+
+                # Calculate per-shift target
+                per_shift_target = target_qty // 2
+
+                # Generate date range
+                current_date = fromdate
+                created_count = 0
+                skipped_count = 0
+
+                while current_date <= todate:
+                    # Check if records already exist for this date/line/shift combination
+                    existing_day = LineTarget.objects.filter(
+                        source_connection=line,
+                        target_date=current_date,
+                        shift='Day'
+                    ).exists()
+
+                    existing_night = LineTarget.objects.filter(
+                        source_connection=line,
+                        target_date=current_date,
+                        shift='Night'
+                    ).exists()
+
+                    if not existing_day:
+                        LineTarget.objects.create(
+                            source_connection=line,
+                            target_date=current_date,
+                            shift='Day',
+                            total_target_qty=per_shift_target,
+                            remarks=f'Bulk generated - {target_qty} total target'
+                        )
+                        created_count += 1
+                    else:
+                        skipped_count += 1
+
+                    if not existing_night:
+                        LineTarget.objects.create(
+                            source_connection=line,
+                            target_date=current_date,
+                            shift='Night',
+                            total_target_qty=per_shift_target,
+                            remarks=f'Bulk generated - {target_qty} total target'
+                        )
+                        created_count += 1
+                    else:
+                        skipped_count += 1
+
+                    current_date += timedelta(days=1)
+
+                messages.success(request,
+                    f"Successfully created {created_count} LineTarget records. "
+                    f"Skipped {skipped_count} existing records."
+                )
+                return redirect('admin:hangerline_linetarget_changelist')
+
+            except ValueError as e:
+                messages.error(request, f"Invalid input: {str(e)}")
+                return redirect('admin:linetarget_bulk_generate')
+
+        # GET request - show form
+        context = {
+            'title': 'Bulk Generate Line Targets',
+            'has_permission': self.has_view_permission(request),
+            'line_choices': LineTarget.LINE_CHOICES,
+        }
+
+        return render(request, 'admin/hangerline/linetarget/bulk_generate.html', context)
+
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist view to add bulk generate link"""
+        extra_context = extra_context or {}
+        extra_context.update({
+            'dashboard_links': [
+                {
+                    'title': '⚡ Bulk Generate Targets',
+                    'url': '/admin/hangerline/linetarget/bulk-generate/',
+                    'description': 'Generate line targets for date ranges with Day/Night shifts'
+                },
+                {
+                    'title': '📊 Dashboard',
+                    'url': '/admin/hangerline/linetarget/dashboard/',
+                    'description': 'View line target dashboard with charts'
+                }
+            ]
+        })
         return super().changelist_view(request, extra_context)
 
     def fetch_loading_data(self, request, pk):

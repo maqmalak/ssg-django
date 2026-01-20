@@ -357,8 +357,14 @@ class LineTarget(models.Model):
         ('line-32', 'Line-32'),
     ]
 
+    SHIFT_CHOICES = [
+        ('Day', 'Day'),
+        ('Night', 'Night'),
+    ]
+
     source_connection = models.CharField(max_length=10, choices=LINE_CHOICES, verbose_name='Line')
     target_date = models.DateField(verbose_name='Target Date')
+    shift = models.CharField(max_length=10, choices=SHIFT_CHOICES, verbose_name='Shift')
     total_target_qty = models.IntegerField(default=0, verbose_name='Total Target Quantity')
     loading_qty = models.IntegerField(default=0, verbose_name='DTS Quantity')
     remarks = models.CharField(max_length=500, blank=True, null=True, verbose_name='Remarks')
@@ -368,8 +374,8 @@ class LineTarget(models.Model):
         db_table = 'line_target'
         verbose_name = 'Line Target'
         verbose_name_plural = 'Line Targets'
-        unique_together = ['source_connection', 'target_date']
-        ordering = ['-target_date', 'source_connection']
+        unique_together = ['source_connection', 'target_date', 'shift']
+        ordering = ['-target_date', 'source_connection', 'shift']
 
     def __str__(self):
         return f"{self.source_connection} - {self.target_date} - Target: {self.total_target_qty} - Loading: {self.loading_qty}"
