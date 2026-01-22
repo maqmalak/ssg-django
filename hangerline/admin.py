@@ -8,7 +8,7 @@ from .models import (
     QualityControlRepair,
     Loadinginformation, Operationinformation,
     Stylebasicinformation, EtlExtractLog, EtlQcrExtractLog,
-    Size, Color, Style, LineTarget, LineTargetDetail, BreakdownCategory, Breakdown, ClientPurchaseOrder,
+    Size, Color, Style, Line, LineTarget, LineTargetDetail, BreakdownCategory, Breakdown, ClientPurchaseOrder,
     TransferToPacking
 )
 
@@ -854,6 +854,15 @@ class StyleAdmin(admin.ModelAdmin):
     list_display = ('style_key', 'style_description')
     search_fields = ('style_key', 'style_description')
     ordering = ('style_key',)
+
+
+@admin.register(Line)
+class LineAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name', 'type', 'server_ip', 'server_name', 'active')
+    list_filter = ('type', 'active')
+    search_fields = ('code', 'name', 'server_ip', 'server_name')
+    ordering = ('code',)
+    list_editable = ('active',)
 
 
 class POProductionDateFilter(admin.SimpleListFilter):

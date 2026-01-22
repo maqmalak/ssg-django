@@ -550,11 +550,11 @@
         const eff = row.efficiency || 0;
 
         // Blue for excellent performance (outstanding results)
-        if (ach >= 80 && eff >= 75 && att >= 80) return 'excellent';
+        if (ach >= 110 || (eff >= 90 && att >= 95)) return 'excellent';
         // Green for good performance (meeting expectations)
-        if (ach >= 50 && eff >= 50 && att >= 60) return 'good';
+        if (ach >= 85 || (eff >= 80 && att >= 90)) return 'good';
         // Orange for concerning performance (needs attention)
-        if (ach >= 30 && eff >= 40 && att >= 50) return 'concerning';
+        if (ach >= 70 || (eff >= 70 && att >= 85)) return 'concerning';
         // Red for poor performance (critical issues)
         return 'poor';
       };

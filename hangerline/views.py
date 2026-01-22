@@ -3,7 +3,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse
 from django.db.models import Sum, Count, Q
 from datetime import datetime, timedelta
-from .models import OperatorDailyPerformance, LineTarget, Breakdown, BreakdownCategory
+from .models import OperatorDailyPerformance, LineTarget, Breakdown, BreakdownCategory, QualityControlRepair, HangerlineEmp, Operationinformation
 # from .batch_api import fetch_batch_no
 
 
@@ -41,6 +41,37 @@ def django_dashboard(request):
         today = datetime.now().date()
         start_date = today
         end_date = today
+
+    # Debug: Check if database has any data at all
+    total_records = OperatorDailyPerformance.objects.count()
+    print(f"DEBUG: Total OperatorDailyPerformance records: {total_records}")
+
+    if total_records == 0:
+        print("DEBUG: No data in OperatorDailyPerformance table")
+    else:
+        # Check data for the selected date range
+        date_filtered_count = OperatorDailyPerformance.objects.filter(
+            odp_date__gte=start_date,
+            odp_date__lte=end_date
+        ).count()
+        print(f"DEBUG: Records in date range {start_date} to {end_date}: {date_filtered_count}")
+
+        # If no data for today, try to find data from recent days
+        if date_filtered_count == 0:
+            print("DEBUG: No data found for selected dates, trying broader range")
+            # Look for data in the last 30 days
+            end_date_30 = today
+            start_date_30 = today - timedelta(days=30)
+            recent_count = OperatorDailyPerformance.objects.filter(
+                odp_date__gte=start_date_30,
+                odp_date__lte=end_date_30
+            ).count()
+            print(f"DEBUG: Records in last 30 days: {recent_count}")
+
+            if recent_count > 0:
+                print("DEBUG: Found data in last 30 days, using that range")
+                start_date = start_date_30
+                end_date = end_date_30
 
     try:
         # Get summary statistics
@@ -86,6 +117,11 @@ def django_dashboard(request):
         # Get total target
         total_target = target_queryset.aggregate(total=Sum('total_target_qty'))['total'] or 0
 
+        # Get all available lines from production data for the date range
+        all_lines = queryset.values_list('source_connection', flat=True).distinct().exclude(
+            source_connection__isnull=True
+        ).exclude(source_connection='').order_by('source_connection')
+
         # Calculate variance (target - offloading)
         variance = total_offloading - total_target
         variance_percent = round((variance / total_target * 100), 1) if total_target > 0 else 0
@@ -96,154 +132,261 @@ def django_dashboard(request):
         # Efficiency (offloading / loading * 100)
         efficiency = round((total_offloading / total_loading * 100), 1) if total_loading > 0 else 0
 
-        # ========== LINE-WISE DATA ==========
-        # Line-wise Loading
-        line_loading_data = (
-            queryset
-            .values('source_connection')
+        # ========== DEFECT DATA ==========
+        defect_queryset = QualityControlRepair.objects.filter(
+            qcr_date__gte=start_date,
+            qcr_date__lte=end_date
+        )
+
+        # Apply line filter if provided
+        if line_filter:
+            defect_queryset = defect_queryset.filter(source_connection=line_filter)
+
+        # Apply shift filter if provided
+        if shift_filter:
+            defect_queryset = defect_queryset.filter(shift=shift_filter)
+
+        # Calculate total defects
+        total_defects = defect_queryset.aggregate(
+            total=Sum('qcr_defect_quantity')
+        )['total'] or 0
+
+        # Calculate defect variance (defect rate as percentage of offloading)
+        defect_variance = round((total_defects / total_offloading * 100), 1) if total_offloading > 0 else 0
+
+        # ========== WORKFORCE DATA ==========
+        # Active workers (total employees with active status)
+        # Note: activestatus is now IntegerField in model, but stored as 1/0 in DB
+        active_workers = HangerlineEmp.objects.filter(activestatus=1).count()
+
+        # Present workers (distinct employees who worked in the selected date range)
+        present_workers = queryset.values('odp_em_key').distinct().count()
+
+        # Attendance percentage
+        attendance_percentage = round((present_workers / active_workers * 100), 1) if active_workers > 0 else 0
+
+        # ========== BREAKDOWN DATA ==========
+        # Use last 30 days for breakdown data (independent of main dashboard filters)
+        end_date_30 = datetime.now().date()
+        start_date_30 = end_date_30 - timedelta(days=60)
+
+        breakdown_queryset = Breakdown.objects.filter(
+            p_date__gte=start_date_30,
+            p_date__lte=end_date_30
+        )
+
+        # Calculate total breakdown time
+        total_breakdown = sum(b.breakdown_time_minutes for b in breakdown_queryset) or 0
+
+        # Breakdown by category
+        category_breakdown = breakdown_queryset.values('breakdown_category__name').annotate(
+            total_time=Sum('loss_minutes')
+        ).order_by('-total_time')
+
+        breakdown_categories_labels = json.dumps([item['breakdown_category__name'] for item in category_breakdown] or ["No Data"])
+        breakdown_categories_data = json.dumps([item['total_time'] or 0 for item in category_breakdown] or [0])
+
+        # Breakdown by line
+        line_breakdown = breakdown_queryset.values('line_no').annotate(
+            total_time=Sum('loss_minutes')
+        ).order_by('-total_time')
+
+        breakdown_lines_labels = json.dumps([item['line_no'] for item in line_breakdown] or ["No Data"])
+        breakdown_lines_data = json.dumps([item['total_time'] or 0 for item in line_breakdown] or [0])
+
+        # ========== UNIFIED LINE-WISE DATA ==========
+        # Create dictionaries for all metrics by line
+        line_loading_dict = {
+            item['source_connection']: item['total'] or 0
+            for item in queryset.values('source_connection')
             .exclude(source_connection__isnull=True)
             .exclude(source_connection='')
             .annotate(total=Sum('loading_qty'))
-            .order_by('-total')
-        )
-        line_loading = []
-        for item in line_loading_data:
-            pct = round((item['total'] or 0) / total_loading * 100, 1) if total_loading > 0 else 0
-            line_loading.append({
-                'line': item['source_connection'],
-                'qty': item['total'] or 0,
-                'percent': pct
-            })
+        }
 
-        # Line-wise Offloading
-        line_offloading_data = (
-            queryset
-            .values('source_connection')
+        line_offloading_dict = {
+            item['source_connection']: {
+                'offload_total': item['offload_total'] or 0,
+                'load_total': item['load_total'] or 0
+            }
+            for item in queryset.values('source_connection')
             .exclude(source_connection__isnull=True)
             .exclude(source_connection='')
             .annotate(
                 offload_total=Sum('unloading_qty'),
                 load_total=Sum('loading_qty')
             )
-            .order_by('-offload_total')
-        )
-        line_offloading = []
-        for item in line_offloading_data:
-            offload = item['offload_total'] or 0
-            load = item['load_total'] or 0
-            pct = round(offload / total_offloading * 100, 1) if total_offloading > 0 else 0
-            eff = round(offload / load * 100, 1) if load > 0 else 0
-            line_offloading.append({
-                'line': item['source_connection'],
-                'qty': offload,
-                'percent': pct,
-                'efficiency': eff
-            })
-
-        # Line-wise WIP
-        line_wip_data = (
-            queryset
-            .values('source_connection')
-            .exclude(source_connection__isnull=True)
-            .exclude(source_connection='')
-            .annotate(
-                load_total=Sum('loading_qty'),
-                offload_total=Sum('unloading_qty')
-            )
-            .order_by('source_connection')
-        )
-        line_wip = []
-        total_wip_calc = max(total_wip, 1)  # Avoid division by zero
-        for item in line_wip_data:
-            load = item['load_total'] or 0
-            offload = item['offload_total'] or 0
-            wip = load - offload
-            pct = round(abs(wip) / abs(total_wip_calc) * 100, 1) if total_wip != 0 else 0
-            line_wip.append({
-                'line': item['source_connection'],
-                'qty': wip,
-                'percent': min(pct, 100)  # Cap at 100%
-            })
-
-        # Line-wise Targets vs Achievement
-        targets_by_line = target_queryset.values('source_connection').annotate(
-            target_qty=Sum('total_target_qty')
-        ).order_by('source_connection')
-
-        offloading_by_line_map = {
-            item['source_connection']: item['offload_total'] or 0
-            for item in line_offloading_data
         }
 
-        line_targets = []
-        for item in targets_by_line:
-            line = item['source_connection']
-            target = item['target_qty'] or 0
-            achieved = offloading_by_line_map.get(line, 0)
-            var = achieved - target
-            pct = round(achieved / target * 100, 1) if target > 0 else 0
-            line_targets.append({
+        # Get target data by line
+        targets_by_line_dict = {
+            item['source_connection']: item['target_qty'] or 0
+            for item in target_queryset.values('source_connection').annotate(
+                target_qty=Sum('total_target_qty')
+            )
+        }
+
+        # Calculate efficiency using SQL query logic: article-wise → line-wise → total averaging
+
+        # Get SMV data indexed by article (latest by applicabledate)
+        smv_data = {}
+        for op in Operationinformation.objects.filter(applicabledate__isnull=False).order_by('articleno', '-applicabledate'):
+            if op.articleno and op.articleno not in smv_data:
+                # Clean article number (remove suffix after - or _)
+                article_key = op.articleno.split('-')[0].split('_')[0]
+                smv_data[article_key] = {
+                    'totalsmv': op.totalsmv or 0,
+                    'conversionfactor': op.conversionfactor or 1
+                }
+
+        # Step 1: Calculate article-wise efficiencies (per date/line/style)
+        article_efficiencies = []
+        style_employee_counts = {}
+
+        # Group production data by date, line, and style
+        grouped_production = {}
+        for prod in queryset:
+            key = (prod.odp_date, prod.source_connection, prod.st_id or '')
+            if key not in grouped_production:
+                grouped_production[key] = {'offloading': 0, 'employees': set()}
+
+            grouped_production[key]['offloading'] += prod.unloading_qty or 0
+            if prod.odp_em_key and str(prod.odp_em_key).startswith('10613'):
+                grouped_production[key]['employees'].add(prod.odp_em_key)
+
+        # Calculate efficiency for each date/line/style group
+        for (prod_date, source_conn, st_id), data in grouped_production.items():
+            offloading_qty = data['offloading']
+            employee_count = len(data['employees']) or 1
+
+            if offloading_qty > 0:
+                # Get SMV for this style using REGEXP_REPLACE pattern
+                article_key = st_id.split('-')[0].split('_')[0] if st_id else ''
+                smv_info = smv_data.get(article_key, {'totalsmv': 1.5, 'conversionfactor': 1.0})
+
+                # Efficiency % = (SMV × Conversion Factor × Unloading Qty) / (Employee Count × 480) × 100
+                produced_minutes = smv_info['totalsmv'] * smv_info['conversionfactor'] * offloading_qty
+                available_minutes = employee_count * 480
+
+                if available_minutes > 0:
+                    efficiency_pct = round((produced_minutes / available_minutes) * 100, 2)
+                    efficiency_pct = min(efficiency_pct, 200)  # Cap at reasonable maximum
+
+                    article_efficiencies.append({
+                        'date': prod_date,
+                        'line': source_conn,
+                        'style': st_id,
+                        'efficiency': efficiency_pct,
+                        'offloading': offloading_qty
+                    })
+
+        # Step 2: Calculate line-wise average efficiencies
+        line_efficiency_data = {}
+        for line in all_lines:
+            line_articles = [art for art in article_efficiencies if art['line'] == line]
+            if line_articles:
+                # Weighted average by offloading quantity
+                total_weighted_eff = sum(art['efficiency'] * art['offloading'] for art in line_articles)
+                total_offloading = sum(art['offloading'] for art in line_articles)
+                avg_efficiency = round(total_weighted_eff / total_offloading, 1) if total_offloading > 0 else 0
+            else:
+                avg_efficiency = 0
+
+            line_efficiency_data[line] = avg_efficiency
+
+        # Step 3: Calculate total average efficiency across all lines
+        if line_efficiency_data:
+            total_efficiency = round(sum(line_efficiency_data.values()) / len(line_efficiency_data), 1)
+            print(f"DEBUG: Line efficiencies: {line_efficiency_data}")
+            print(f"DEBUG: Total efficiency: {total_efficiency}%")
+        else:
+            total_efficiency = 0
+            print("DEBUG: No line efficiency data available")
+
+        # Create unified line performance data
+        line_performance = []
+        for line in all_lines:
+            # Loading data
+            loading_qty = line_loading_dict.get(line, 0)
+            loading_pct = round(loading_qty / total_loading * 100, 1) if total_loading > 0 else 0
+
+            # Offloading data
+            offload_data = line_offloading_dict.get(line, {'offload_total': 0, 'load_total': 0})
+            offloading_qty = offload_data['offload_total']
+            load_for_eff = offload_data['load_total']
+            offloading_pct = round(offloading_qty / total_offloading * 100, 1) if total_offloading > 0 else 0
+
+            # Use calculated efficiency from SQL logic
+            efficiency = line_efficiency_data.get(line, 0)
+
+            # WIP data
+            wip_qty = loading_qty - offloading_qty
+            total_wip_calc = max(total_wip, 1)
+            wip_pct = round(abs(wip_qty) / abs(total_wip_calc) * 100, 1) if total_wip != 0 else 0
+
+            # Target data
+            target_qty = targets_by_line_dict.get(line, 0)
+            variance = offloading_qty - target_qty
+            achievement_pct = round(offloading_qty / target_qty * 100, 1) if target_qty > 0 else 0
+
+            line_performance.append({
                 'line': line,
-                'target': target,
-                'achieved': achieved,
-                'variance': var,
-                'percent': pct
+                'loading_qty': loading_qty,
+                'loading_pct': loading_pct,
+                'offloading_qty': offloading_qty,
+                'offloading_pct': offloading_pct,
+                'efficiency': line_efficiency_data.get(line, 0),
+                'wip_qty': wip_qty,
+                'wip_pct': min(wip_pct, 100),
+                'target_qty': target_qty,
+                'variance': variance,
+                'achievement_pct': achievement_pct,
             })
 
+        # Sort by total production (loading + offloading) descending
+        line_performance.sort(key=lambda x: x['loading_qty'] + x['offloading_qty'], reverse=True)
+
     except Exception as e:
-        # Database connection failed, use mock data
-        print(f"Database error: {e}, falling back to mock data")
-        # For now, use hardcoded fallback data since we can't call JS from Python
-        totals = {'total_loading': 26926, 'total_offloading': 26385, 'total_quantity': 0}
-        total_loading = 26926
-        total_offloading = 26385
-        total_wip = 541
-        line_count = 12
-        shift_count = 2
-        total_target = 17884
-        variance = 8501
-        variance_percent = 47.5
-        achievement_percent = 147.5
-        efficiency = 98.0
+        # Database connection failed - use dynamic queries with empty result handling
+        print(f"Database error: {e}, using dynamic queries with empty data handling")
 
-        line_loading = [
-            {'line': 'Line-21', 'qty': 2300, 'percent': 8.5},
-            {'line': 'Line-22', 'qty': 2400, 'percent': 8.9},
-            {'line': 'Line-23', 'qty': 2350, 'percent': 8.7},
-        ]
+        # Initialize all variables to handle empty data gracefully
+        totals = {'total_loading': 0, 'total_offloading': 0, 'total_quantity': 0}
+        total_loading = 0
+        total_offloading = 0
+        total_wip = 0
+        line_count = 0
+        shift_count = 0
+        total_target = 0
+        variance = 0
+        variance_percent = 0
+        achievement_percent = 0
+        efficiency = 0
 
-        line_offloading = [
-            {'line': 'Line-21', 'qty': 2250, 'percent': 8.5, 'efficiency': 98.0},
-            {'line': 'Line-22', 'qty': 2350, 'percent': 8.9, 'efficiency': 97.5},
-            {'line': 'Line-23', 'qty': 2300, 'percent': 8.7, 'efficiency': 98.5},
-        ]
+        # Get all lines from LineTarget (may be empty if no targets set)
+        all_lines = []
 
-        line_wip = [
-            {'line': 'Line-21', 'qty': 50, 'percent': 9.2},
-            {'line': 'Line-22', 'qty': 50, 'percent': 9.2},
-            {'line': 'Line-23', 'qty': 50, 'percent': 9.2},
-        ]
+        # Workforce data - will be 0 if no data
+        active_workers = 0
+        present_workers = 0
+        attendance_percentage = 0
 
-        line_targets = [
-            {'line': 'Line-21', 'target': 1200, 'achieved': 2250, 'variance': 1050, 'percent': 187.5},
-            {'line': 'Line-22', 'target': 1250, 'achieved': 2350, 'variance': 1100, 'percent': 188.0},
-            {'line': 'Line-23', 'target': 1180, 'achieved': 2300, 'variance': 1120, 'percent': 194.9},
-        ]
+        # Defect data - will be 0 if no data
+        total_defects = 0
+        defect_variance = 0
 
-    # ========== BREAKDOWN DATA (sample/placeholder) ==========
-    # Since we don't have a Breakdown model, we'll provide sample data
-    # In production, this should be replaced with actual breakdown data
-    breakdown_categories_labels = json.dumps(["Mechanical", "Electrical", "Material", "Operator", "Other"])
-    breakdown_categories_data = json.dumps([30, 25, 20, 15, 10])
-    breakdown_lines_labels = json.dumps([item['source_connection'] for item in line_loading_data[:8]])
-    breakdown_lines_data = json.dumps([10, 15, 12, 8, 20, 18, 14, 16][:len(line_loading_data)])
-    
-    # Total breakdown (sample - replace with actual data)
-    total_breakdown = 120  # minutes
+        # Breakdown data - will be empty arrays if no data
+        total_breakdown = 0
+        breakdown_categories_labels = json.dumps([])
+        breakdown_categories_data = json.dumps([])
+        breakdown_lines_labels = json.dumps([])
+        breakdown_lines_data = json.dumps([])
 
-    # Total defects (sample - replace with actual data)
-    total_defects = 0
-    defect_variance = 0
+        # Line-wise data - will be empty lists if no data
+        line_loading = []
+        line_offloading = []
+        line_wip = []
+        line_targets = []
 
     context = {
         'title': 'Production Dashboard',
@@ -259,17 +402,17 @@ def django_dashboard(request):
         # Additional summary cards data
         'total_defects': total_defects,
         'defect_variance': defect_variance,
+        'active_workers': active_workers,
+        'present_workers': present_workers,
+        'attendance_percentage': attendance_percentage,
         'total_target': total_target,
         'variance': variance,
         'variance_percent': variance_percent,
         'achievement_percent': achievement_percent,
         'total_breakdown': total_breakdown,
-        'efficiency': efficiency,
-        # Line-wise data
-        'line_loading': line_loading,
-        'line_offloading': line_offloading,
-        'line_wip': line_wip,
-        'line_targets': line_targets,
+        'efficiency': total_efficiency,
+        # Unified line performance data
+        'line_performance': line_performance,
         # Breakdown chart data (JSON strings)
         'breakdown_categories_labels': breakdown_categories_labels,
         'breakdown_categories_data': breakdown_categories_data,
@@ -285,17 +428,19 @@ def chart_data_by_shift(request):
     # Get date range from request
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
-    
+
     queryset = OperatorDailyPerformance.objects.all()
-    
+
     if start_date:
         queryset = queryset.filter(odp_date__gte=start_date)
     if end_date:
         queryset = queryset.filter(odp_date__lte=end_date)
     else:
-        # Default: current month
-        now = datetime.now()
-        queryset = queryset.filter(odp_date__year=now.year, odp_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        queryset = queryset.filter(odp_date__gte=start_date, odp_date__lte=end_date)
     
     data = (
         queryset
@@ -330,16 +475,19 @@ def chart_data_by_source(request):
     """API endpoint for source connection summary data"""
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
-    
+
     queryset = OperatorDailyPerformance.objects.all()
-    
+
     if start_date:
         queryset = queryset.filter(odp_date__gte=start_date)
     if end_date:
         queryset = queryset.filter(odp_date__lte=end_date)
     else:
-        now = datetime.now()
-        queryset = queryset.filter(odp_date__year=now.year, odp_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        queryset = queryset.filter(odp_date__gte=start_date, odp_date__lte=end_date)
     
     data = (
         queryset
@@ -373,16 +521,19 @@ def chart_data_by_production(request):
     """API endpoint for production category summary data"""
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
-    
+
     queryset = OperatorDailyPerformance.objects.all()
-    
+
     if start_date:
         queryset = queryset.filter(odp_date__gte=start_date)
     if end_date:
         queryset = queryset.filter(odp_date__lte=end_date)
     else:
-        now = datetime.now()
-        queryset = queryset.filter(odp_date__year=now.year, odp_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        queryset = queryset.filter(odp_date__gte=start_date, odp_date__lte=end_date)
     
     # Production categories
     categories = {
@@ -471,8 +622,11 @@ def chart_data_by_line_offloading(request):
     if end_date:
         queryset = queryset.filter(odp_date__lte=end_date)
     else:
-        now = datetime.now()
-        queryset = queryset.filter(odp_date__year=now.year, odp_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        queryset = queryset.filter(odp_date__gte=start_date, odp_date__lte=end_date)
 
     data = (
         queryset
@@ -539,8 +693,11 @@ def chart_data_by_line_loading(request):
     if end_date:
         queryset = queryset.filter(odp_date__lte=end_date)
     else:
-        now = datetime.now()
-        queryset = queryset.filter(odp_date__year=now.year, odp_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        queryset = queryset.filter(odp_date__gte=start_date, odp_date__lte=end_date)
 
     data = (
         queryset
@@ -607,9 +764,11 @@ def chart_data_line_target_summary(request):
     if end_date:
         queryset = queryset.filter(target_date__lte=end_date)
     else:
-        # Default: current month
-        now = datetime.now()
-        queryset = queryset.filter(target_date__year=now.year, target_date__month=now.month)
+        # Default: last 90 days (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today - timedelta(days=90)
+        end_date = today
+        queryset = queryset.filter(target_date__gte=start_date, target_date__lte=end_date)
 
     # Aggregate line target data
     targets_data = queryset.aggregate(
@@ -624,8 +783,11 @@ def chart_data_line_target_summary(request):
     if end_date:
         odp_queryset = odp_queryset.filter(odp_date__lte=end_date)
     else:
-        now = datetime.now()
-        odp_queryset = odp_queryset.filter(odp_date__year=now.year, odp_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        odp_queryset = odp_queryset.filter(odp_date__gte=start_date, odp_date__lte=end_date)
 
     actual_data = odp_queryset.aggregate(
         total_offloading=Sum('unloading_qty')
@@ -659,8 +821,11 @@ def chart_data_line_wise_targets(request):
     if end_date:
         target_queryset = target_queryset.filter(target_date__lte=end_date)
     else:
-        now = datetime.now()
-        target_queryset = target_queryset.filter(target_date__year=now.year, target_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        target_queryset = target_queryset.filter(target_date__gte=start_date, target_date__lte=end_date)
 
     # Get actual offloading by line
     odp_queryset = OperatorDailyPerformance.objects.all()
@@ -669,8 +834,11 @@ def chart_data_line_wise_targets(request):
     if end_date:
         odp_queryset = odp_queryset.filter(odp_date__lte=end_date)
     else:
-        now = datetime.now()
-        odp_queryset = odp_queryset.filter(odp_date__year=now.year, odp_date__month=now.month)
+        # Default: current date (same as main dashboard)
+        today = datetime.now().date()
+        start_date = today
+        end_date = today
+        odp_queryset = odp_queryset.filter(odp_date__gte=start_date, odp_date__lte=end_date)
 
     # Aggregate targets by line
     targets_by_line = target_queryset.values('source_connection').annotate(

@@ -231,6 +231,7 @@ app.get('/api/production-data', async (req, res) => {
           FROM line_target
           WHERE target_date >= $1::date AND target_date <= $2::date
             AND source_connection IN ${lineFilter.replace(/\$/g, '$$')}
+            AND shift IN ${shiftFilter.replace(/\$/g, '$$')}
           GROUP BY target_date, source_connection
         ) AS target ON target.source_connection = odp.source_connection
           AND target.target_date = odp.odp_date
@@ -250,6 +251,7 @@ app.get('/api/production-data', async (req, res) => {
         FROM line_target
         WHERE target_date >= $1::date AND target_date <= $2::date
           AND source_connection IN ${lineFilter.replace(/\$/g, '$$')}
+          AND shift IN ${shiftFilter.replace(/\$/g, '$$')}
       `, [startDate, endDate]),
 
       // Query 1.6: Check all available target dates

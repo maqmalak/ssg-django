@@ -102,13 +102,13 @@ class HangerlineEmp(models.Model):
     line_desc = models.CharField(max_length=100, null=True)
     assignment_date = models.DateTimeField(blank=True, null=True)
     shift = models.CharField(max_length=100, null=True)
-    location_id = models.BigIntegerField(blank=True, null=True)
+    location_id = models.IntegerField(blank=True, null=True)
     joindate = models.DateTimeField(blank=True, null=True)
     resigndate = models.FloatField(blank=True, null=True)
     nic = models.CharField(max_length=100, null=True)
     add1 = models.TextField(blank=True, null=True)
     mobile = models.CharField(blank=True, null=True)
-    activestatus = models.BooleanField(blank=True, null=True)
+    activestatus = models.IntegerField(blank=True, null=True)
     gender_choice = [
         ('M', 'Male'),
         ('F','Female')
@@ -168,6 +168,9 @@ class Operationinformation(models.Model):
     class Meta:
         managed = False
         db_table = 'operationinformation'
+
+    def __str__(self):
+        return f"{self.articleno} - {self.totalsmv} SMV"
 
 
 class OperatorDailyPerformance(models.Model):
@@ -485,6 +488,31 @@ class ClientPurchaseOrder(models.Model):
 
     def __str__(self):
         return f"{self.articleno}-{self.pono}-{self.itemsize}-{self.mcolour}"
+
+class Line(models.Model):
+    LINE_TYPE_CHOICES = [
+        ('6r', '6R'),
+        ('7a', '7A'),
+        ('erp', 'ERP'),
+    ]
+
+    code = models.CharField(max_length=3, primary_key=True, verbose_name='Line Code')
+    type = models.CharField(max_length=3, choices=LINE_TYPE_CHOICES, verbose_name='Line Type')
+    name = models.CharField(max_length=50, verbose_name='Line Name')
+    server_ip = models.CharField(max_length=50, verbose_name='Server IP')
+    server_name = models.CharField(max_length=100, verbose_name='Server Name')
+    active = models.BooleanField(default=True, verbose_name='Active')
+
+    class Meta:
+        managed = True
+        db_table = 'line'
+        verbose_name = 'Line'
+        verbose_name_plural = 'Lines'
+        ordering = ['code']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
 
 class Breakdown(models.Model):
     LINE_CHOICES = [

@@ -164,6 +164,7 @@
         .summary-card.achievement::before { background: linear-gradient(90deg, #26de81, #20bf6b); }
         .summary-card.breakdown::before { background: linear-gradient(90deg, #fd9644, #fa8231); }
         .summary-card.efficiency::before { background: linear-gradient(90deg, #a55eea, #8854d0); }
+        .summary-card.workforce::before { background: linear-gradient(90deg, #a55eea, #8854d0); }
 
         .summary-card-icon {
             font-size: 2em;
@@ -194,11 +195,152 @@
         .summary-card .change.positive { color: #26de81; }
         .summary-card .change.negative { color: #fc5c65; }
 
-        /* Line-wise Cards Section */
+        /* Line-wise Section */
         .linewise-section {
             margin-bottom: 30px;
         }
 
+        .linewise-table-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+
+        .linewise-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+
+        .linewise-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 3px solid #5a67d8;
+        }
+
+        .linewise-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f1f2f6;
+            transition: background-color 0.3s ease;
+        }
+
+        .linewise-table tr:hover {
+            background-color: #f8f9ff;
+        }
+
+        .linewise-table .line-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1em;
+        }
+
+        .linewise-table .metric-value {
+            font-weight: 600;
+            color: #667eea;
+            text-align: center;
+        }
+
+        .linewise-table .metric-percent {
+            font-weight: 500;
+            color: #6c757d;
+            text-align: center;
+            background: #f1f2f6;
+            padding: 4px 8px;
+            border-radius: 12px;
+            display: inline-block;
+            min-width: 50px;
+        }
+
+        .linewise-table .metric-percent.excellent {
+            background: linear-gradient(135deg, #26de81, #20bf6b);
+            color: white;
+            font-weight: 600;
+        }
+
+        .linewise-table .metric-percent.good {
+            background: linear-gradient(135deg, #45aaf2, #2d98da);
+            color: white;
+            font-weight: 600;
+        }
+
+        .linewise-table .metric-percent.average {
+            background: linear-gradient(135deg, #fd9644, #fa8231);
+            color: white;
+            font-weight: 600;
+        }
+
+        .linewise-table .metric-percent.poor {
+            background: linear-gradient(135deg, #fc5c65, #eb3b5a);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Horizontal Bar Gauge Styles */
+        .bar-gauge-container {
+            width: 80px;
+            height: 20px;
+            background: #f1f2f6;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .bar-gauge-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .bar-gauge-fill.excellent { background: linear-gradient(90deg, #26de81, #20bf6b); }
+        .bar-gauge-fill.good { background: linear-gradient(90deg, #45aaf2, #2d98da); }
+        .bar-gauge-fill.average { background: linear-gradient(90deg, #fd9644, #fa8231); }
+        .bar-gauge-fill.poor { background: linear-gradient(90deg, #fc5c65, #eb3b5a); }
+
+        .bar-gauge-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+            z-index: 1;
+        }
+
+        .bar-gauge-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+        }
+
+        .linewise-table .metric-variance {
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .linewise-table .metric-variance.positive {
+            color: #26de81;
+        }
+
+        .linewise-table .metric-variance.negative {
+            color: #fc5c65;
+        }
+
+        /* Line-wise Cards Section (fallback) */
         .linewise-cards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -373,9 +515,9 @@
         <div class="dashboard-header">
             <h1>
                 <img src="{% static 'images/logo.jpg' %}" alt="Lucrum Logo" style='height: 60px; margin-right: 15px; vertical-align: middle; border-radius: 8px;'>
-                Production Dashboard
+                Hangerline Production Dashboard
             </h1>
-            <p>Comprehensive Production Analytics & Insights - {{ current_month }}</p>
+            <p>Production Dashboard - Comprehensive Analytics & Insights - {{ current_month }}</p>
         </div>
 
         <!-- Filter Section -->
@@ -434,7 +576,7 @@
             </div>
 
             <div class="summary-card offloading">
-                <span class="summary-card-icon">🚚</span>
+                <span class="summary-card-icon">👕</span>
                 <h4>Total Offloading</h4>
                 <div class="value" id="totalOffloading">{{ total_offloading|default:0 }}</div>
             </div>
@@ -455,6 +597,24 @@
                 <span class="summary-card-icon">📉</span>
                 <h4>Defect Variance</h4>
                 <div class="value" id="defectVariance">{{ defect_variance|default:0 }}%</div>
+            </div>
+
+            <div class="summary-card workforce">
+                <span class="summary-card-icon">👥</span>
+                <h4>Active Workers</h4>
+                <div class="value" id="activeWorkers">{{ active_workers|default:0 }}</div>
+            </div>
+
+            <div class="summary-card workforce">
+                <span class="summary-card-icon">✅</span>
+                <h4>Present Workers</h4>
+                <div class="value" id="presentWorkers">{{ present_workers|default:0 }}</div>
+            </div>
+
+            <div class="summary-card workforce">
+                <span class="summary-card-icon">📊</span>
+                <h4>Attendance %</h4>
+                <div class="value" id="attendancePercentage">{{ attendance_percentage|default:0 }}%</div>
             </div>
 
             <div class="summary-card target">
@@ -497,91 +657,44 @@
             </div>
         </div>
 
-        <!-- Line-wise Cards Section -->
+        <!-- Line-wise Performance Table Section -->
         <div class="linewise-section">
             <div class="section-title">🏭 Line-wise Performance</div>
-            <div class="linewise-cards-grid">
-                <!-- Line-wise Loading Card -->
-                <div class="linewise-card">
-                    <h4>📦 Loading by Line</h4>
-                    <div id="lineLoadingContainer">
-                        {% for item in line_loading %}
-                        <div class="line-item">
-                            <span class="line-name">{{ item.line }}</span>
-                            <div class="line-stats">
-                                <span class="line-value">{{ item.qty }}</span>
-                                <span class="line-percent">{{ item.percent }}%</span>
-                                <div class="progress-bar-container">
-                                    <div class="progress-bar loading" style="width: {{ item.percent }}%;"></div>
-                                </div>
-                            </div>
-                        </div>
+            <div class="linewise-table-container">
+                <table class="linewise-table">
+                    <thead>
+                        <tr>
+                            <th>Line</th>
+                            <th>Loading Qty & %</th>
+                            <th>Offloading Qty & %</th>
+                            <th>Efficiency Avg %</th>
+                            <th>WIP Qty & %</th>
+                            <th>Target Qty</th>
+                            <th>Variance</th>
+                            <th>Achievement %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in line_performance %}
+                        <tr>
+                            <td class="line-name">{{ item.line }}</td>
+                            <td class="metric-value">{{ item.loading_qty|default:0 }} <span class="metric-percent {% if item.loading_pct >= 80 %}excellent{% elif item.loading_pct >= 60 %}good{% elif item.loading_pct >= 40 %}average{% else %}poor{% endif %}">({{ item.loading_pct|default:0 }}%)</span></td>
+                            <td class="metric-value">{{ item.offloading_qty|default:0 }} <span class="metric-percent {% if item.offloading_pct >= 80 %}excellent{% elif item.offloading_pct >= 60 %}good{% elif item.offloading_pct >= 40 %}average{% else %}poor{% endif %}">({{ item.offloading_pct|default:0 }}%)</span></td>
+                            <td class="metric-percent {% if item.efficiency >= 80 %}excellent{% elif item.efficiency >= 60 %}good{% elif item.efficiency >= 40 %}average{% else %}poor{% endif %}">{{ item.efficiency|default:0 }}%</td>
+                            <td class="metric-value">{{ item.wip_qty|default:0 }} <span class="metric-percent {% if item.wip_pct <= 20 %}excellent{% elif item.wip_pct <= 40 %}good{% elif item.wip_pct <= 60 %}average{% else %}poor{% endif %}">({{ item.wip_pct|default:0 }}%)</span></td>
+                            <td class="metric-value">{{ item.target_qty|default:0 }}</td>
+                            <td class="metric-variance {% if item.variance >= 0 %}positive{% else %}negative{% endif %}">
+                                {% if item.variance >= 0 %}+{% endif %}{{ item.variance|default:0 }}
+                            </td>
+                            <td class="metric-percent {% if item.achievement_pct >= 90 %}excellent{% elif item.achievement_pct >= 80 %}good{% elif item.achievement_pct >= 70 %}average{% else %}poor{% endif %}">{{ item.achievement_pct|default:0 }}%</td>
+                        </tr>
                         {% empty %}
-                        <p style="color: #6c757d; text-align: center;">No data available</p>
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #6c757d; padding: 20px;">No data available</td>
+                        </tr>
                         {% endfor %}
-                    </div>
-                </div>
-
-                <!-- Line-wise Offloading Card -->
-                <div class="linewise-card">
-                    <h4>🚚 Offloading by Line</h4>
-                    <div id="lineOffloadingContainer">
-                        {% for item in line_offloading %}
-                        <div class="line-item">
-                            <span class="line-name">{{ item.line }}</span>
-                            <div class="line-stats">
-                                <span class="line-value">{{ item.qty }}</span>
-                                <span class="line-percent">{{ item.percent }}%</span>
-                                <span class="line-percent">Eff: {{ item.efficiency }}%</span>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <p style="color: #6c757d; text-align: center;">No data available</p>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- Line-wise WIP Card -->
-                <div class="linewise-card">
-                    <h4>⚡ WIP by Line</h4>
-                    <div id="lineWIPContainer">
-                        {% for item in line_wip %}
-                        <div class="line-item">
-                            <span class="line-name">{{ item.line }}</span>
-                            <div class="line-stats">
-                                <span class="line-value">{{ item.qty }}</span>
-                                <span class="line-percent">{{ item.percent }}%</span>
-                                <div class="progress-bar-container">
-                                    <div class="progress-bar wip" style="width: {{ item.percent }}%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <p style="color: #6c757d; text-align: center;">No data available</p>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- Line-wise Target vs Achievement Card -->
-                <div class="linewise-card">
-                    <h4>🎯 Target vs Achievement</h4>
-                    <div id="lineTargetContainer">
-                        {% for item in line_targets %}
-                        <div class="line-item">
-                            <span class="line-name">{{ item.line }}</span>
-                            <div class="line-stats">
-                                <span class="line-value">{{ item.achieved }}/{{ item.target }}</span>
-                                <span class="line-percent">{{ item.percent }}%</span>
-                                <span class="line-variance {% if item.variance >= 0 %}positive{% else %}negative{% endif %}">
-                                    {% if item.variance >= 0 %}+{% endif %}{{ item.variance }}
-                                </span>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <p style="color: #6c757d; text-align: center;">No data available</p>
-                        {% endfor %}
-                    </div>
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -652,23 +765,56 @@ let stackedBarChart, shiftBarChart, productionPieChart, breakdownCategoryChart, 
 // Dashboard data from Django
 const dashboardData = JSON.parse(document.getElementById('dashboard-data').textContent);
 
-// Chart colors
+// Modern Chart colors with gradients and hover effects
 const chartColors = {
-    loading: 'rgba(102, 126, 234, 0.8)',
-    offloading: 'rgba(240, 147, 251, 0.8)',
-    wip: 'rgba(78, 205, 196, 0.8)',
-    day: 'rgba(45, 152, 218, 0.8)',
-    night: 'rgba(52, 73, 94, 0.8)',
-    total: 'rgba(155, 89, 182, 0.8)',
+    loading: {
+        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.9))',
+        border: '#667eea',
+        hover: 'rgba(102, 126, 234, 1)'
+    },
+    offloading: {
+        background: 'linear-gradient(135deg, rgba(240, 147, 251, 0.8), rgba(245, 87, 108, 0.9))',
+        border: '#f093fb',
+        hover: 'rgba(240, 147, 251, 1)'
+    },
+    wip: {
+        background: 'linear-gradient(135deg, rgba(78, 205, 196, 0.8), rgba(68, 160, 141, 0.9))',
+        border: '#4ecdc4',
+        hover: 'rgba(78, 205, 196, 1)'
+    },
+    day: {
+        background: 'linear-gradient(135deg, rgba(45, 152, 218, 0.8), rgba(52, 73, 94, 0.9))',
+        border: '#2d98da',
+        hover: 'rgba(45, 152, 218, 1)'
+    },
+    night: {
+        background: 'linear-gradient(135deg, rgba(52, 73, 94, 0.8), rgba(44, 62, 80, 0.9))',
+        border: '#34495e',
+        hover: 'rgba(52, 73, 94, 1)'
+    },
     pieColors: [
-        'rgba(102, 126, 234, 0.8)',
-        'rgba(240, 147, 251, 0.8)',
-        'rgba(78, 205, 196, 0.8)',
-        'rgba(255, 159, 67, 0.8)',
-        'rgba(252, 92, 101, 0.8)',
-        'rgba(165, 94, 234, 0.8)',
-        'rgba(38, 222, 129, 0.8)',
-        'rgba(75, 101, 132, 0.8)'
+        'rgba(102, 126, 234, 0.9)',
+        'rgba(240, 147, 251, 0.9)',
+        'rgba(78, 205, 196, 0.9)',
+        'rgba(255, 159, 67, 0.9)',
+        'rgba(252, 92, 101, 0.9)',
+        'rgba(165, 94, 234, 0.9)',
+        'rgba(38, 222, 129, 0.9)',
+        'rgba(75, 101, 132, 0.9)',
+        'rgba(142, 68, 173, 0.9)',
+        'rgba(230, 126, 34, 0.9)'
+    ],
+    pieHoverColors: [
+        'rgba(102, 126, 234, 1)',
+        'rgba(240, 147, 251, 1)',
+        'rgba(78, 205, 196, 1)',
+        'rgba(255, 159, 67, 1)',
+        'rgba(252, 92, 101, 1)',
+        'rgba(165, 94, 234, 1)',
+        'rgba(38, 222, 129, 1)',
+        'rgba(75, 101, 132, 1)',
+        'rgba(142, 68, 173, 1)',
+        'rgba(230, 126, 34, 1)'
     ]
 };
 
@@ -723,17 +869,105 @@ function createStackedBarChart() {
 
             stackedBarChart = new Chart(ctx, {
                 type: 'bar',
-                data: data,
+                data: {
+                    ...data,
+                    datasets: data.datasets.map((dataset, index) => ({
+                        ...dataset,
+                        backgroundColor: [
+                            chartColors.loading.border,
+                            chartColors.offloading.border,
+                            chartColors.wip.border
+                        ][index] + 'CC', // Add transparency
+                        borderColor: [
+                            chartColors.loading.border,
+                            chartColors.offloading.border,
+                            chartColors.wip.border
+                        ][index],
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        hoverBackgroundColor: [
+                            chartColors.loading.hover,
+                            chartColors.offloading.hover,
+                            chartColors.wip.hover
+                        ][index],
+                        hoverBorderColor: [
+                            chartColors.loading.border,
+                            chartColors.offloading.border,
+                            chartColors.wip.border
+                        ][index],
+                        hoverBorderWidth: 3,
+                    }))
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
+                    },
                     plugins: {
-                        legend: { position: 'top' },
-                        title: { display: false }
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                title: function(context) {
+                                    return `📊 ${context[0].label}`;
+                                },
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toLocaleString()}`;
+                                }
+                            }
+                        }
                     },
                     scales: {
-                        x: { stacked: true },
-                        y: { stacked: true, beginAtZero: true }
+                        x: {
+                            stacked: true,
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                }
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    onHover: (event, activeElements) => {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     },
                     borderRadius: 8
                 }
@@ -752,19 +986,106 @@ function createShiftBarChart() {
 
             shiftBarChart = new Chart(ctx, {
                 type: 'bar',
-                data: data,
+                data: {
+                    ...data,
+                    datasets: data.datasets.map((dataset, index) => ({
+                        ...dataset,
+                        backgroundColor: [
+                            chartColors.loading.border,
+                            chartColors.offloading.border,
+                            chartColors.wip.border
+                        ][index] + 'CC', // Add transparency
+                        borderColor: [
+                            chartColors.loading.border,
+                            chartColors.offloading.border,
+                            chartColors.wip.border
+                        ][index],
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        hoverBackgroundColor: [
+                            chartColors.loading.hover,
+                            chartColors.offloading.hover,
+                            chartColors.wip.hover
+                        ][index],
+                        hoverBorderColor: [
+                            chartColors.loading.border,
+                            chartColors.offloading.border,
+                            chartColors.wip.border
+                        ][index],
+                        hoverBorderWidth: 3,
+                    }))
+                },
                 options: {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeInOutQuart',
+                        delay: (context) => context.dataIndex * 200
+                    },
                     plugins: {
-                        legend: { position: 'top' },
-                        title: { display: false }
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                title: function(context) {
+                                    return `🕐 ${context[0].dataset.label} Shift`;
+                                },
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.x.toLocaleString()} units`;
+                                }
+                            }
+                        }
                     },
                     scales: {
-                        x: { beginAtZero: true }
+                        x: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                }
+                            }
+                        }
                     },
-                    borderRadius: 8
+                    onHover: (event, activeElements) => {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+                    }
                 }
             });
         })
@@ -781,13 +1102,62 @@ function createProductionPieChart() {
 
             productionPieChart = new Chart(ctx, {
                 type: 'pie',
-                data: data,
+                data: {
+                    ...data,
+                    datasets: data.datasets.map(dataset => ({
+                        ...dataset,
+                        backgroundColor: chartColors.pieColors.slice(0, data.labels.length),
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        borderWidth: 2,
+                        hoverBackgroundColor: chartColors.pieHoverColors.slice(0, data.labels.length),
+                        hoverBorderColor: 'rgba(255, 255, 255, 0.3)',
+                        hoverBorderWidth: 3,
+                        hoverOffset: 8
+                    }))
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: {
+                        duration: 1400,
+                        easing: 'easeInOutQuart',
+                        animateScale: true,
+                        animateRotate: true
+                    },
                     plugins: {
-                        legend: { position: 'right' },
-                        title: { display: false }
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                title: function(context) {
+                                    return `📊 ${context[0].label}`;
+                                },
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return `${context.label}: ${context.parsed.toLocaleString()} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    onHover: (event, activeElements) => {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
                 }
             });
@@ -807,14 +1177,58 @@ function createBreakdownCategoryChart() {
             labels: dashboardData.breakdown_categories_labels,
             datasets: [{
                 data: dashboardData.breakdown_categories_data,
-                backgroundColor: chartColors.pieColors
+                backgroundColor: chartColors.pieColors.slice(0, dashboardData.breakdown_categories_labels.length),
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                borderWidth: 2,
+                hoverBackgroundColor: chartColors.pieHoverColors.slice(0, dashboardData.breakdown_categories_labels.length),
+                hoverBorderColor: 'rgba(255, 255, 255, 0.3)',
+                hoverBorderWidth: 3,
+                hoverOffset: 8
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 1400,
+                easing: 'easeInOutQuart',
+                animateScale: true,
+                animateRotate: true
+            },
             plugins: {
-                legend: { position: 'right' }
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true,
+                        font: {
+                            size: 11,
+                            weight: '500'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        title: function(context) {
+                            return `🔧 ${context[0].label}`;
+                        },
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed.toLocaleString()} min (${percentage}%)`;
+                        }
+                    }
+                }
+            },
+            onHover: (event, activeElements) => {
+                event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
             }
         }
     });
@@ -832,14 +1246,58 @@ function createBreakdownLineChart() {
             labels: dashboardData.breakdown_lines_labels,
             datasets: [{
                 data: dashboardData.breakdown_lines_data,
-                backgroundColor: chartColors.pieColors
+                backgroundColor: chartColors.pieColors.slice(0, dashboardData.breakdown_lines_labels.length),
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                borderWidth: 2,
+                hoverBackgroundColor: chartColors.pieHoverColors.slice(0, dashboardData.breakdown_lines_labels.length),
+                hoverBorderColor: 'rgba(255, 255, 255, 0.3)',
+                hoverBorderWidth: 3,
+                hoverOffset: 8
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 1400,
+                easing: 'easeInOutQuart',
+                animateScale: true,
+                animateRotate: true
+            },
             plugins: {
-                legend: { position: 'right' }
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true,
+                        font: {
+                            size: 11,
+                            weight: '500'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        title: function(context) {
+                            return `🏭 ${context[0].label}`;
+                        },
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed.toLocaleString()} min (${percentage}%)`;
+                        }
+                    }
+                }
+            },
+            onHover: (event, activeElements) => {
+                event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
             }
         }
     });
