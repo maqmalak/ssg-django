@@ -773,11 +773,15 @@ class QualityControlRepairAdmin(admin.ModelAdmin):
 
 @admin.register(Loadinginformation)
 class LoadinginformationAdmin(admin.ModelAdmin):
-    list_display = ('dated','id', 'pono', 'item_id', 'title','bundleno', 'qty','line_desc')
-    search_fields = ('pono', 'item_id', 'title', 'fg_articleno', 'barcode')
-    list_filter = ('dated','line_desc', 'item_id')
+    list_display = ('display_date','id', 'pono', 'item_id', 'title', 'color_name', 'articleno', 'color_code', 'size_code', 'qty','line_desc')
+    search_fields = ('pono', 'item_id', 'title', 'barcode')
+    list_filter = ('dated','line_desc',)
     date_hierarchy = 'dated'
     ordering = ['-dated']
+
+    def display_date(self, obj):
+        return obj.dated.strftime('%Y-%m-%d') if obj.dated else None
+    display_date.short_description = 'Date'
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

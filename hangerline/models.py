@@ -124,7 +124,7 @@ class HangerlineEmp(models.Model):
     
 class Loadinginformation(models.Model):
     # id = models.TextField(blank=True, null=True)
-    dated = models.DateTimeField(blank=True, null=True, verbose_name='Date',default=None)
+    dated = models.DateField(blank=True, null=True, verbose_name='Date',default=None)
     # scrvoucher_no = models.CharField(max_length=20, blank=True, null=True, verbose_name='SCR Voucher No')
 
     id = models.CharField(max_length=20, blank=True, null=True, verbose_name='SCR Voucher No',db_column='scrvoucher_no')
@@ -135,9 +135,12 @@ class Loadinginformation(models.Model):
     line_desc = models.CharField(max_length=10, blank=True, null=True, verbose_name='Line ID')
     title = models.TextField(blank=True, null=True, verbose_name='Title')
     model = models.CharField(blank=True, null=True, verbose_name='Model')
-    fg_articleno = models.CharField(blank=True, null=True, verbose_name='FG Article No')
-    # fg_colour = models.CharField(blank=True, null=True, verbose_name='FG Colour')
-    # fg_size = models.CharField(blank=True, null=True, verbose_name='FG Size')
+    basearticleno = models.CharField(blank=True, null=True, verbose_name='Base Article No')
+    articleno = models.CharField(blank=True, null=True, verbose_name='Article No')
+    color_code = models.CharField(max_length=10 ,blank=True, null=True, verbose_name='Color')
+    color_name = models.CharField(max_length=50, blank=True, null=True, verbose_name='Colour Name')
+
+    size_code = models.CharField(max_length=50, blank=True, null=True, verbose_name='FG Size')
     bundleno = models.BigIntegerField(blank=True, null=True, verbose_name='Bundle No')
     qty = models.FloatField(blank=True, null=True, verbose_name='Quantity')
 
